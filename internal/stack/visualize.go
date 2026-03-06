@@ -16,175 +16,278 @@ type TreeOptions struct {
 	Detailed      bool
 }
 
-// SiblingInfo tracks the position of a branch among its siblings
-type SiblingInfo struct {
-	IsFirst      bool // First sibling (topmost in output)
-	IsLast       bool // Last sibling (closest to parent)
-	IsOnlyChild  bool // Only child of parent (no junctions needed)
-	HasMoreAbove bool // Are there siblings above this one?
-	HasMoreBelow bool // Are there siblings below this one?
-}
-
 // Commit represents a single commit in a branch
 type Commit struct {
 	SHA     string
 	Message string
 }
 
-// RenderTree renders the stack as a top-down tree with commits
-// Output flows from leaves (top) down to trunk (bottom)
-func (s *Stack) RenderTree(repo *git.Repo, opts TreeOptions) string {
-	var result strings.Builder
+// columnLayout tracks which column each node is assigned to
+type columnLayout struct {
+	columns   map[string]int // node name → column index
+	maxColumn int
+}
 
-	// Render trunk's children recursively, then trunk
-	// Sort by commit time (newer first) when repo is available
-	var children []*Node
+// assignColumns recursively assigns columns to all nodes.
+// The oldest child inherits the parent's column; subsequent children get new columns.
+func (cl *columnLayout) assignColumns(node *Node, col int, repo *git.Repo) {
+	cl.columns[node.Name] = col
+	if col > cl.maxColumn {
+		cl.maxColumn = col
+	}
+
+	children := sortedChildren(repo, node)
+	for i, child := range children {
+		if i == 0 {
+			// Primary (oldest) child inherits parent's column
+			cl.assignColumns(child, col, repo)
+		} else {
+			// Secondary children get new columns
+			cl.maxColumn++
+			cl.assignColumns(child, cl.maxColumn, repo)
+		}
+	}
+}
+
+// sortedChildren returns children sorted oldest-first (ascending timestamp).
+// Falls back to alphabetical sort when repo is nil.
+func sortedChildren(repo *git.Repo, node *Node) []*Node {
+	if len(node.Children) == 0 {
+		return nil
+	}
 	if repo != nil {
-		children = sortChildrenByTime(repo, s.Trunk.Children)
-	} else {
-		children = s.Trunk.SortedChildren()
+		return sortChildrenOldestFirst(repo, node.Children)
 	}
-	if len(children) > 0 {
-		// Start with empty rail - the rail character is added inside
-		s.renderSiblingsWithCommits(&result, children, repo, opts, "")
+	return node.SortedChildren()
+}
+
+// sortChildrenOldestFirst sorts children by commit time ascending (oldest first).
+func sortChildrenOldestFirst(repo *git.Repo, children []*Node) []*Node {
+	if len(children) == 0 {
+		return nil
+	}
+	sorted := make([]*Node, len(children))
+	copy(sorted, children)
+
+	timestamps := make(map[string]int64)
+	for _, child := range sorted {
+		timestamps[child.Name] = getCommitTimestamp(repo, child.Name)
 	}
 
-	// Render trunk at the bottom
+	sort.Slice(sorted, func(i, j int) bool {
+		return timestamps[sorted[i].Name] < timestamps[sorted[j].Name]
+	})
+
+	return sorted
+}
+
+// flattenedNode represents a node in render order along with metadata
+type flattenedNode struct {
+	node     *Node
+	subMerge bool // true if a sub-merge line should be rendered before this node
+}
+
+// flattenBranch produces the render order for a node's primary chain and secondary subtrees.
+// Primary (oldest) child above, then secondary children above (with sub-merge), then this node.
+func flattenBranch(node *Node, repo *git.Repo, layout *columnLayout) []flattenedNode {
+	children := sortedChildren(repo, node)
+	var result []flattenedNode
+
+	// Primary child's subtree above
+	if len(children) > 0 {
+		result = append(result, flattenBranch(children[0], repo, layout)...)
+	}
+
+	// Secondary children's subtrees above (will be closed by sub-merge)
+	if len(children) > 1 {
+		for _, child := range children[1:] {
+			result = append(result, flattenBranch(child, repo, layout)...)
+		}
+	}
+
+	// This node (with sub-merge flag if it has secondary children)
+	result = append(result, flattenedNode{node: node, subMerge: len(children) > 1})
+
+	return result
+}
+
+// flattenTree produces the full render order: all branches above trunk, then trunk.
+func flattenTree(s *Stack, repo *git.Repo, layout *columnLayout) []flattenedNode {
+	children := sortedChildren(repo, s.Trunk)
+	var result []flattenedNode
+
+	for _, child := range children {
+		result = append(result, flattenBranch(child, repo, layout)...)
+	}
+
+	return result
+}
+
+// buildColumnPrefix builds the prefix string with │ at each active column,
+// up to but not including the target column.
+func buildColumnPrefix(activeCols map[int]bool, upTo int) string {
+	chars := colors.DefaultTreeChars()
+	var sb strings.Builder
+	for c := 0; c < upTo; c++ {
+		if activeCols[c] {
+			sb.WriteString(colors.Muted(chars.Vertical))
+			sb.WriteString("   ")
+		} else {
+			sb.WriteString("    ")
+		}
+	}
+	return sb.String()
+}
+
+// RenderTree renders the stack as a column-based tree with commits.
+// Older branches at top, newer branches closer to trunk at bottom.
+func (s *Stack) RenderTree(repo *git.Repo, opts TreeOptions) string {
+	layout := &columnLayout{columns: make(map[string]int)}
+	layout.assignColumns(s.Trunk, 0, repo)
+
+	flat := flattenTree(s, repo, layout)
+
+	var result strings.Builder
+	chars := colors.DefaultTreeChars()
+
+	// Track which columns are currently active (have a vertical line passing through)
+	activeCols := make(map[int]bool)
+
+	for i, fn := range flat {
+		node := fn.node
+		col := layout.columns[node.Name]
+		depth := s.GetStackDepth(node.Name)
+
+		// Activate this column when we first render in it
+		activeCols[col] = true
+
+		// Sub-merge line before this node (closes secondary children's columns)
+		if fn.subMerge {
+			maxSecCol := findMaxActiveSecondaryCol(node, layout)
+			if maxSecCol > col {
+				result.WriteString(buildMergeLine(activeCols, col, maxSecCol))
+				result.WriteString("\n")
+				for c := col + 1; c <= maxSecCol; c++ {
+					activeCols[c] = false
+				}
+			}
+		}
+
+		// Node line
+		prefix := buildColumnPrefix(activeCols, col)
+		indicator := chars.Circle
+		if node.IsCurrent {
+			indicator = chars.FilledCircle
+		}
+		var coloredIndicator, branchName string
+		if node.IsCurrent {
+			coloredIndicator = colors.CycleText(indicator, depth)
+			branchName = colors.BranchCurrent(node.Name)
+		} else {
+			coloredIndicator = colors.Muted(indicator)
+			branchName = colors.Muted(node.Name)
+		}
+
+		result.WriteString(prefix)
+		result.WriteString(coloredIndicator)
+		result.WriteString(" ")
+		result.WriteString(branchName)
+		if node.IsCurrent {
+			result.WriteString(colors.Muted(" (current)"))
+		}
+
+		// Time ago
+		if repo != nil {
+			commits := s.getBranchCommits(repo, node)
+			if len(commits) > 0 {
+				timeAgo := getTimeSinceLastCommit(repo, node.Name)
+				if timeAgo != "" {
+					result.WriteString(colors.Muted(" · " + timeAgo))
+				}
+			}
+		}
+		result.WriteString("\n")
+
+		// Commit lines
+		if repo != nil {
+			commits := s.getBranchCommits(repo, node)
+			for ci, commit := range commits {
+				cPrefix := buildColumnPrefix(activeCols, col)
+				result.WriteString(cPrefix)
+				result.WriteString(colors.Muted(chars.Vertical))
+				result.WriteString(" ")
+
+				sha := commit.SHA
+				if len(sha) > 7 {
+					sha = sha[:7]
+				}
+				if ci == 0 {
+					result.WriteString(colors.CommitSHA(sha))
+				} else {
+					result.WriteString(colors.Muted(sha))
+				}
+				result.WriteString(colors.Muted(" - "))
+
+				msg := commit.Message
+				if len(msg) > 50 {
+					msg = msg[:47] + "..."
+				}
+				result.WriteString(colors.Muted(msg))
+				result.WriteString("\n")
+			}
+		}
+
+		// Connector lines after the node
+		isLastNode := (i == len(flat)-1)
+		nextHasSubMerge := (i+1 < len(flat) && flat[i+1].subMerge)
+
+		hasActiveSecondary := false
+		for c := 1; c <= layout.maxColumn; c++ {
+			if activeCols[c] {
+				hasActiveSecondary = true
+				break
+			}
+		}
+		isLastBeforeMainMerge := isLastNode && hasActiveSecondary
+
+		if nextHasSubMerge {
+			// Last node before a sub-merge: 0 connector lines
+		} else if isLastBeforeMainMerge {
+			// Last node before main merge: 1 connector line
+			connPrefix := buildColumnPrefix(activeCols, col)
+			result.WriteString(connPrefix)
+			result.WriteString(colors.Muted(chars.Vertical))
+			result.WriteString("\n")
+		} else {
+			// Normal: 2 connector lines
+			for n := 0; n < 2; n++ {
+				connPrefix := buildColumnPrefix(activeCols, col)
+				result.WriteString(connPrefix)
+				result.WriteString(colors.Muted(chars.Vertical))
+				result.WriteString("\n")
+			}
+		}
+	}
+
+	// Main merge line before trunk (close all still-active non-trunk columns)
+	maxActiveCol := 0
+	for c := 1; c <= layout.maxColumn; c++ {
+		if activeCols[c] {
+			maxActiveCol = c
+		}
+	}
+	if maxActiveCol > 0 {
+		result.WriteString(buildMergeLine(activeCols, 0, maxActiveCol))
+		result.WriteString("\n")
+		// Post-merge vertical connector to trunk
+		result.WriteString(colors.Muted(chars.Vertical))
+		result.WriteString("\n")
+	}
+
+	// Render trunk
 	s.renderTrunkWithCommits(&result, s.Trunk, repo, opts)
 
 	return result.String()
-}
-
-// renderSiblingsWithCommits renders a group of siblings with a shared rail connecting to parent
-// outerRail is the prefix for this sibling group (e.g., "│   " for test's children)
-func (s *Stack) renderSiblingsWithCommits(result *strings.Builder, siblings []*Node, repo *git.Repo, opts TreeOptions, outerRail string) {
-	chars := colors.DefaultTreeChars()
-	vertLine := colors.Muted(chars.Vertical)
-	inSiblingGroup := len(siblings) > 1 // Are we rendering multiple siblings?
-
-	for i, node := range siblings {
-		isFirst := i == 0
-		hasChildren := len(node.Children) > 0
-
-		// Calculate the prefix for this node and its children
-		// Indent if: we're in a sibling group AND this node has children to show
-		var nodeRail string
-		if inSiblingGroup && hasChildren {
-			// Node in sibling group with children: indent the subtree
-			nodeRail = outerRail + vertLine + "   "
-		} else {
-			nodeRail = outerRail
-		}
-
-		// Render this node's children first (they appear above)
-		if hasChildren {
-			var grandchildren []*Node
-			if repo != nil {
-				grandchildren = sortChildrenByTime(repo, node.Children)
-			} else {
-				grandchildren = node.SortedChildren()
-			}
-			s.renderSiblingsWithCommits(result, grandchildren, repo, opts, nodeRail)
-		}
-
-		// Build prefix for this node's branch line
-		// Node with children in sibling group gets merge junction prefix
-		var branchPrefix string
-		if isFirst && outerRail == "" && !hasChildren {
-			// First sibling at root level that's a leaf - no prefix
-			branchPrefix = ""
-		} else if inSiblingGroup && hasChildren {
-			// Node in sibling group with children - use merge junction as prefix
-			branchPrefix = outerRail + colors.Muted(chars.Tee+chars.Horizontal+chars.Horizontal+chars.Horizontal)
-		} else {
-			branchPrefix = outerRail
-		}
-
-		// commitRail is what comes before the vertical line for commits/connectors
-		commitRail := outerRail
-
-		s.renderBranchLineWithCommits(result, node, repo, opts, branchPrefix, commitRail)
-	}
-}
-
-// renderBranchLineWithCommits renders a single branch line and its commits
-// branchPrefix is the prefix for the branch indicator line
-// rail is the prefix for commit lines and connectors
-func (s *Stack) renderBranchLineWithCommits(result *strings.Builder, node *Node, repo *git.Repo, opts TreeOptions, branchPrefix string, rail string) {
-	chars := colors.DefaultTreeChars()
-	depth := s.GetStackDepth(node.Name)
-
-	// Use filled circle for current branch, hollow for others
-	indicator := chars.Circle
-	if node.IsCurrent {
-		indicator = chars.FilledCircle
-	}
-
-	// Format indicator and branch name
-	var coloredIndicator, branchName string
-	if node.IsCurrent {
-		coloredIndicator = colors.CycleText(indicator, depth)
-		branchName = colors.BranchCurrent(node.Name)
-	} else {
-		coloredIndicator = colors.Muted(indicator)
-		branchName = colors.Muted(node.Name)
-	}
-
-	// Build the branch line
-	result.WriteString(branchPrefix)
-	result.WriteString(coloredIndicator)
-	result.WriteString(" ")
-	result.WriteString(branchName)
-
-	if node.IsCurrent {
-		result.WriteString(colors.Muted(" (current)"))
-	}
-
-	// Get commits
-	var commits []Commit
-	if repo != nil {
-		commits = s.getBranchCommits(repo, node)
-		if len(commits) > 0 {
-			timeAgo := getTimeSinceLastCommit(repo, node.Name)
-			if timeAgo != "" {
-				result.WriteString(colors.Muted(" · " + timeAgo))
-			}
-		}
-	}
-
-	result.WriteString("\n")
-
-	// Render commits with rail prefix
-	if repo != nil {
-		for i, commit := range commits {
-			result.WriteString(rail)
-			result.WriteString(colors.Muted(chars.Vertical))
-			result.WriteString(" ")
-
-			sha := commit.SHA
-			if len(sha) > 7 {
-				sha = sha[:7]
-			}
-			if i == 0 {
-				result.WriteString(colors.CommitSHA(sha))
-			} else {
-				result.WriteString(colors.Muted(sha))
-			}
-			result.WriteString(colors.Muted(" - "))
-
-			msg := commit.Message
-			if len(msg) > 50 {
-				msg = msg[:47] + "..."
-			}
-			result.WriteString(colors.Muted(msg))
-			result.WriteString("\n")
-		}
-	}
-
-	// Trailing connector line
-	result.WriteString(rail)
-	result.WriteString(colors.Muted(chars.Vertical))
-	result.WriteString("\n")
 }
 
 // renderTrunkWithCommits renders the trunk branch
@@ -259,6 +362,199 @@ func (s *Stack) renderTrunkWithCommits(result *strings.Builder, node *Node, repo
 	}
 }
 
+// buildMergeLine builds a merge line closing columns from startCol+1 to maxCol.
+// Uses ├ at startCol (tee, since the line continues below) and ┘ at the end.
+func buildMergeLine(activeCols map[int]bool, startCol, maxCol int) string {
+	chars := colors.DefaultTreeChars()
+	var sb strings.Builder
+
+	// Prefix: verticals for columns before startCol
+	for c := 0; c < startCol; c++ {
+		if activeCols[c] {
+			sb.WriteString(colors.Muted(chars.Vertical))
+			sb.WriteString("   ")
+		} else {
+			sb.WriteString("    ")
+		}
+	}
+
+	// The tee at startCol (line continues below)
+	sb.WriteString(colors.Muted(chars.Tee))
+
+	// Horizontals and junctions for each column being closed
+	for c := startCol + 1; c <= maxCol; c++ {
+		sb.WriteString(colors.Muted(chars.Horizontal + chars.Horizontal + chars.Horizontal))
+		if c < maxCol {
+			sb.WriteString(colors.Muted("┴"))
+		} else {
+			sb.WriteString(colors.Muted(chars.BottomRight))
+		}
+	}
+
+	return sb.String()
+}
+
+// findMaxActiveSecondaryCol finds the maximum column used by secondary children
+// of a given node.
+func findMaxActiveSecondaryCol(node *Node, layout *columnLayout) int {
+	nodeCol := layout.columns[node.Name]
+	maxCol := nodeCol
+	var walkChildren func(n *Node)
+	walkChildren = func(n *Node) {
+		c := layout.columns[n.Name]
+		if c > maxCol {
+			maxCol = c
+		}
+		for _, child := range n.Children {
+			walkChildren(child)
+		}
+	}
+	for _, child := range node.Children {
+		walkChildren(child)
+	}
+	// Only return > nodeCol if there are actual secondary columns
+	if maxCol > nodeCol {
+		return maxCol
+	}
+	return -1
+}
+
+// RenderShort renders a compact column-based view of the stack (no commits).
+func (s *Stack) RenderShort(repo *git.Repo) string {
+	layout := &columnLayout{columns: make(map[string]int)}
+	layout.assignColumns(s.Trunk, 0, repo)
+
+	flat := flattenTree(s, repo, layout)
+
+	var result strings.Builder
+	chars := colors.DefaultTreeChars()
+
+	activeCols := make(map[int]bool)
+
+	for i, fn := range flat {
+		node := fn.node
+		col := layout.columns[node.Name]
+		depth := s.GetStackDepth(node.Name)
+
+		// Activate this column
+		activeCols[col] = true
+
+		// Sub-merge line before this node (closes secondary children's columns)
+		if fn.subMerge {
+			maxSecCol := findMaxActiveSecondaryCol(node, layout)
+			if maxSecCol > col {
+				result.WriteString(buildMergeLine(activeCols, col, maxSecCol))
+				result.WriteString("\n")
+				// Deactivate the closed columns
+				for c := col + 1; c <= maxSecCol; c++ {
+					activeCols[c] = false
+				}
+			}
+		}
+
+		// Node line
+		prefix := buildColumnPrefix(activeCols, col)
+		indicator := chars.Circle
+		if node.IsCurrent {
+			indicator = chars.FilledCircle
+		}
+		var coloredIndicator, branchName string
+		if node.IsCurrent {
+			coloredIndicator = colors.CycleText(indicator, depth)
+			branchName = colors.BranchCurrent(node.Name)
+		} else {
+			coloredIndicator = colors.Muted(indicator)
+			branchName = colors.Muted(node.Name)
+		}
+
+		result.WriteString(prefix)
+		result.WriteString(coloredIndicator)
+		result.WriteString(" ")
+		result.WriteString(branchName)
+		if node.IsCurrent {
+			result.WriteString(colors.Muted(" (current)"))
+		}
+		result.WriteString("\n")
+
+		// Connector lines after the node
+		isLastNode := (i == len(flat)-1)
+		nextHasSubMerge := (i+1 < len(flat) && flat[i+1].subMerge)
+
+		// Check if main merge will actually render (any non-trunk column still active)
+		hasActiveSecondary := false
+		for c := 1; c <= layout.maxColumn; c++ {
+			if activeCols[c] {
+				hasActiveSecondary = true
+				break
+			}
+		}
+		isLastBeforeMainMerge := isLastNode && hasActiveSecondary
+
+		if nextHasSubMerge {
+			// Last node before a sub-merge: 0 connector lines
+		} else if isLastBeforeMainMerge {
+			// Last node before main merge: 1 connector line
+			connPrefix := buildColumnPrefix(activeCols, col)
+			result.WriteString(connPrefix)
+			result.WriteString(colors.Muted(chars.Vertical))
+			result.WriteString("\n")
+		} else {
+			// Normal: 2 connector lines
+			for n := 0; n < 2; n++ {
+				connPrefix := buildColumnPrefix(activeCols, col)
+				result.WriteString(connPrefix)
+				result.WriteString(colors.Muted(chars.Vertical))
+				result.WriteString("\n")
+			}
+		}
+	}
+
+	// Main merge line before trunk (close all still-active non-trunk columns)
+	maxActiveCol := 0
+	for c := 1; c <= layout.maxColumn; c++ {
+		if activeCols[c] {
+			maxActiveCol = c
+		}
+	}
+	if maxActiveCol > 0 {
+		result.WriteString(buildMergeLine(activeCols, 0, maxActiveCol))
+		result.WriteString("\n")
+		// Post-merge vertical connector to trunk
+		result.WriteString(colors.Muted(chars.Vertical))
+		result.WriteString("\n")
+	}
+
+	// Render trunk
+	trunkIndicator := chars.Circle
+	if s.Trunk.IsCurrent {
+		trunkIndicator = chars.FilledCircle
+	}
+	var coloredIndicator, trunkName string
+	if s.Trunk.IsCurrent {
+		coloredIndicator = colors.CycleText(trunkIndicator, 0)
+		trunkName = colors.BranchCurrent(s.Trunk.Name)
+	} else {
+		coloredIndicator = colors.Muted(trunkIndicator)
+		trunkName = colors.Muted(s.Trunk.Name)
+	}
+	result.WriteString(coloredIndicator)
+	result.WriteString(" ")
+	result.WriteString(trunkName)
+	if s.Trunk.IsCurrent {
+		result.WriteString(colors.Muted(" (current)"))
+	}
+	result.WriteString("\n")
+
+	// Trailing vertical lines after trunk
+	verticalLine := colors.Muted(chars.Vertical)
+	for n := 0; n < 3; n++ {
+		result.WriteString(verticalLine)
+		result.WriteString("\n")
+	}
+
+	return result.String()
+}
+
 // getTimeSinceLastCommit returns relative time since the last commit on a branch
 func getTimeSinceLastCommit(repo *git.Repo, branch string) string {
 	output, err := repo.RunGitCommand("log", "-1", "--format=%cr", branch)
@@ -281,7 +577,8 @@ func getCommitTimestamp(repo *git.Repo, branch string) int64 {
 	return timestamp
 }
 
-// sortChildrenByTime sorts children by their last commit time (newer first)
+// sortChildrenByTime sorts children by their last commit time (newer first).
+// Kept for backward compatibility with tests.
 func sortChildrenByTime(repo *git.Repo, children []*Node) []*Node {
 	if len(children) == 0 {
 		return nil
@@ -289,13 +586,11 @@ func sortChildrenByTime(repo *git.Repo, children []*Node) []*Node {
 	sorted := make([]*Node, len(children))
 	copy(sorted, children)
 
-	// Get timestamps for all children
 	timestamps := make(map[string]int64)
 	for _, child := range sorted {
 		timestamps[child.Name] = getCommitTimestamp(repo, child.Name)
 	}
 
-	// Sort by timestamp descending (newer first = higher timestamp first)
 	sort.Slice(sorted, func(i, j int) bool {
 		return timestamps[sorted[i].Name] > timestamps[sorted[j].Name]
 	})
@@ -338,8 +633,6 @@ func (s *Stack) getBranchCommits(repo *git.Repo, node *Node) []Commit {
 		return nil
 	}
 
-	// Get commits in this branch that are not in parent
-	// git log parent..branch --oneline
 	output, err := repo.RunGitCommand("log", "--oneline", "--reverse",
 		fmt.Sprintf("%s..%s", node.Parent.Name, node.Name))
 	if err != nil || output == "" {
@@ -368,122 +661,6 @@ func (s *Stack) getBranchCommits(repo *git.Repo, node *Node) []Commit {
 	return commits
 }
 
-// RenderShort renders a compact view of the stack (top-down, no commits)
-// Uses T-junctions to show sibling relationships
-func (s *Stack) RenderShort(repo *git.Repo) string {
-	var result strings.Builder
-	chars := colors.DefaultTreeChars()
-
-	// Render trunk's children recursively, then trunk
-	// Sort by commit time (newer first) when repo is available
-	var children []*Node
-	if repo != nil {
-		children = sortChildrenByTime(repo, s.Trunk.Children)
-	} else {
-		children = s.Trunk.SortedChildren()
-	}
-	if len(children) > 0 {
-		s.renderSiblingsShort(&result, children, repo, "")
-	}
-
-	// Render trunk at the bottom
-	indicator := chars.Circle
-	if s.Trunk.IsCurrent {
-		indicator = chars.FilledCircle
-	}
-	var coloredIndicator, branchName string
-	if s.Trunk.IsCurrent {
-		coloredIndicator = colors.CycleText(indicator, 0)
-		branchName = colors.BranchCurrent(s.Trunk.Name)
-	} else {
-		coloredIndicator = colors.Muted(indicator)
-		branchName = colors.Muted(s.Trunk.Name)
-	}
-	result.WriteString(coloredIndicator)
-	result.WriteString(" ")
-	result.WriteString(branchName)
-	if s.Trunk.IsCurrent {
-		result.WriteString(colors.Muted(" (current)"))
-	}
-	result.WriteString("\n")
-
-	return result.String()
-}
-
-// renderSiblingsShort renders siblings with a shared rail (short format)
-func (s *Stack) renderSiblingsShort(result *strings.Builder, siblings []*Node, repo *git.Repo, outerRail string) {
-	chars := colors.DefaultTreeChars()
-	vertLine := colors.Muted(chars.Vertical)
-	inSiblingGroup := len(siblings) > 1 // Are we rendering multiple siblings?
-
-	for i, node := range siblings {
-		isFirst := i == 0
-		hasChildren := len(node.Children) > 0
-
-		// Calculate the prefix for this node and its children
-		// Indent if: we're in a sibling group AND this node has children to show
-		var nodeRail string
-		if inSiblingGroup && hasChildren {
-			nodeRail = outerRail + vertLine + "   "
-		} else {
-			nodeRail = outerRail
-		}
-
-		// Render children first (they appear above)
-		if hasChildren {
-			var grandchildren []*Node
-			if repo != nil {
-				grandchildren = sortChildrenByTime(repo, node.Children)
-			} else {
-				grandchildren = node.SortedChildren()
-			}
-			s.renderSiblingsShort(result, grandchildren, repo, nodeRail)
-		}
-
-		// Build prefix for branch line
-		// Node with children in sibling group gets merge junction prefix
-		var branchPrefix string
-		if isFirst && outerRail == "" && !hasChildren {
-			// First sibling at root level that's a leaf - no prefix
-			branchPrefix = ""
-		} else if inSiblingGroup && hasChildren {
-			// Node in sibling group with children - use merge junction as prefix
-			branchPrefix = outerRail + colors.Muted(chars.Tee+chars.Horizontal+chars.Horizontal+chars.Horizontal)
-		} else {
-			branchPrefix = outerRail
-		}
-
-		// Render branch line
-		depth := s.GetStackDepth(node.Name)
-		indicator := chars.Circle
-		if node.IsCurrent {
-			indicator = chars.FilledCircle
-		}
-		var coloredIndicator, branchName string
-		if node.IsCurrent {
-			coloredIndicator = colors.CycleText(indicator, depth)
-			branchName = colors.BranchCurrent(node.Name)
-		} else {
-			coloredIndicator = colors.Muted(indicator)
-			branchName = colors.Muted(node.Name)
-		}
-
-		result.WriteString(branchPrefix)
-		result.WriteString(coloredIndicator)
-		result.WriteString(" ")
-		result.WriteString(branchName)
-		if node.IsCurrent {
-			result.WriteString(colors.Muted(" (current)"))
-		}
-		result.WriteString("\n")
-
-		// Connector line
-		result.WriteString(outerRail)
-		result.WriteString(vertLine)
-		result.WriteString("\n")
-	}
-}
-
 // RenderPath renders a path from trunk to a branch
 func (s *Stack) RenderPath(branch string) string {
 	path := s.FindPath(branch)
@@ -497,7 +674,6 @@ func (s *Stack) RenderPath(branch string) string {
 			result.WriteString(colors.Muted(" → "))
 		}
 
-		// Color based on position
 		var name string
 		if node.IsCurrent {
 			name = colors.BranchCurrent(node.Name)
