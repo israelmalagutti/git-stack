@@ -384,10 +384,12 @@ func buildMergeLine(activeCols map[int]bool, startCol, maxCol int) string {
 	// Horizontals and junctions for each column being closed
 	for c := startCol + 1; c <= maxCol; c++ {
 		sb.WriteString(colors.Muted(chars.Horizontal + chars.Horizontal + chars.Horizontal))
-		if c < maxCol {
+		if c == maxCol {
+			sb.WriteString(colors.Muted(chars.BottomRight))
+		} else if activeCols[c] {
 			sb.WriteString(colors.Muted("┴"))
 		} else {
-			sb.WriteString(colors.Muted(chars.BottomRight))
+			sb.WriteString(colors.Muted(chars.Horizontal))
 		}
 	}
 
