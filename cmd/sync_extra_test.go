@@ -126,7 +126,7 @@ func TestSyncHelpers(t *testing.T) {
 	}
 
 	// Add stale branch to metadata
-	metadata.TrackBranch("stale-branch", "main")
+	metadata.TrackBranch("stale-branch", "main", "")
 	if err := cleanStaleBranches(repo, metadata, cfg, true); err != nil {
 		t.Fatalf("cleanStaleBranches failed: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestSyncHelpers(t *testing.T) {
 	if err := repo.CreateBranch("feat-merged"); err != nil {
 		t.Fatalf("failed to create branch: %v", err)
 	}
-	metadata.TrackBranch("feat-merged", "main")
+	metadata.TrackBranch("feat-merged", "main", "")
 	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
 		t.Fatalf("failed to save metadata: %v", err)
 	}

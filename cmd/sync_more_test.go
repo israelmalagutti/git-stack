@@ -33,7 +33,7 @@ func TestCleanStaleBranchesPromptNo(t *testing.T) {
 	repo := setupCmdTestRepo(t)
 	defer repo.cleanup()
 
-	repo.metadata.TrackBranch("stale-branch", "main")
+	repo.metadata.TrackBranch("stale-branch", "main", "")
 	if err := repo.metadata.Save(repo.repo.GetMetadataPath()); err != nil {
 		t.Fatalf("failed to save metadata: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestRestackAllBranchesSuccess(t *testing.T) {
 		t.Fatalf("failed to build stack: %v", err)
 	}
 
-	succeeded, failed := restackAllBranches(repo.repo, s)
+	succeeded, failed := restackAllBranches(repo.repo, s, repo.metadata)
 	if len(failed) != 0 {
 		t.Fatalf("expected no restack failures, got %v", failed)
 	}
@@ -197,13 +197,13 @@ func TestRunSyncInteractiveFlow(t *testing.T) {
 	}
 
 	// Stale branch in metadata
-	metadata.TrackBranch("stale-branch", "main")
+	metadata.TrackBranch("stale-branch", "main", "")
 
 	// Tracked branch merged into main
 	if err := repo.CreateBranch("feat-merged"); err != nil {
 		t.Fatalf("failed to create branch: %v", err)
 	}
-	metadata.TrackBranch("feat-merged", "main")
+	metadata.TrackBranch("feat-merged", "main", "")
 	if err := repo.CheckoutBranch("feat-merged"); err != nil {
 		t.Fatalf("failed to checkout: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestRunSyncInteractiveFlow(t *testing.T) {
 	if err := repo.CreateBranch("feat-restack"); err != nil {
 		t.Fatalf("failed to create branch: %v", err)
 	}
-	metadata.TrackBranch("feat-restack", "main")
+	metadata.TrackBranch("feat-restack", "main", "")
 	if err := repo.CheckoutBranch("feat-restack"); err != nil {
 		t.Fatalf("failed to checkout: %v", err)
 	}

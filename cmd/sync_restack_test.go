@@ -40,7 +40,7 @@ func TestRunSyncRestack(t *testing.T) {
 	if err := repo.CreateBranch("feat-sync"); err != nil {
 		t.Fatalf("failed to create branch: %v", err)
 	}
-	metadata.TrackBranch("feat-sync", "main")
+	metadata.TrackBranch("feat-sync", "main", "")
 	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
 		t.Fatalf("failed to save metadata: %v", err)
 	}

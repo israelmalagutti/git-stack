@@ -15,7 +15,7 @@ func TestRenderShortWithRepoAndEmptyMessages(t *testing.T) {
 	if err := repo.CreateBranch("feat-a"); err != nil {
 		t.Fatalf("failed to create branch: %v", err)
 	}
-	metadata.TrackBranch("feat-a", "main")
+	metadata.TrackBranch("feat-a", "main", "")
 	if err := repo.CheckoutBranch("feat-a"); err != nil {
 		t.Fatalf("failed to checkout feat-a: %v", err)
 	}
@@ -26,7 +26,7 @@ func TestRenderShortWithRepoAndEmptyMessages(t *testing.T) {
 	if err := repo.CreateBranch("feat-a-child"); err != nil {
 		t.Fatalf("failed to create child branch: %v", err)
 	}
-	metadata.TrackBranch("feat-a-child", "feat-a")
+	metadata.TrackBranch("feat-a-child", "feat-a", "")
 	if err := repo.CheckoutBranch("feat-a-child"); err != nil {
 		t.Fatalf("failed to checkout child: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestRenderShortWithRepoAndEmptyMessages(t *testing.T) {
 	if err := repo.CreateBranch("feat-b"); err != nil {
 		t.Fatalf("failed to create branch: %v", err)
 	}
-	metadata.TrackBranch("feat-b", "main")
+	metadata.TrackBranch("feat-b", "main", "")
 	if err := repo.CheckoutBranch("feat-b"); err != nil {
 		t.Fatalf("failed to checkout feat-b: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestRenderShortWithRepoAndEmptyMessages(t *testing.T) {
 	if err := repo.CreateBranch("feat-empty"); err != nil {
 		t.Fatalf("failed to create branch: %v", err)
 	}
-	metadata.TrackBranch("feat-empty", "main")
+	metadata.TrackBranch("feat-empty", "main", "")
 	if err := repo.CheckoutBranch("feat-empty"); err != nil {
 		t.Fatalf("failed to checkout feat-empty: %v", err)
 	}

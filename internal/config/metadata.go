@@ -9,9 +9,10 @@ import (
 
 // BranchMetadata represents metadata for a tracked branch
 type BranchMetadata struct {
-	Parent  string    `json:"parent"`
-	Tracked bool      `json:"tracked"`
-	Created time.Time `json:"created"`
+	Parent         string    `json:"parent"`
+	Tracked        bool      `json:"tracked"`
+	Created        time.Time `json:"created"`
+	ParentRevision string    `json:"parentRevision,omitempty"`
 }
 
 // Metadata represents the stack metadata
@@ -60,12 +61,32 @@ func (m *Metadata) Save(path string) error {
 }
 
 // TrackBranch adds or updates a branch in the metadata
-func (m *Metadata) TrackBranch(branch, parent string) {
+func (m *Metadata) TrackBranch(branch, parent, parentRevision string) {
 	m.Branches[branch] = &BranchMetadata{
-		Parent:  parent,
-		Tracked: true,
-		Created: time.Now(),
+		Parent:         parent,
+		Tracked:        true,
+		Created:        time.Now(),
+		ParentRevision: parentRevision,
 	}
+}
+
+// SetParentRevision updates the parent revision SHA for a tracked branch
+func (m *Metadata) SetParentRevision(branch, sha string) error {
+	meta, exists := m.Branches[branch]
+	if !exists {
+		return fmt.Errorf("branch %s is not tracked", branch)
+	}
+	meta.ParentRevision = sha
+	return nil
+}
+
+// GetParentRevision returns the parent revision SHA for a tracked branch
+func (m *Metadata) GetParentRevision(branch string) string {
+	meta, exists := m.Branches[branch]
+	if !exists {
+		return ""
+	}
+	return meta.ParentRevision
 }
 
 // UntrackBranch removes a branch from the metadata

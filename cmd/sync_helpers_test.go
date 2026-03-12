@@ -45,7 +45,7 @@ func TestRestackAllBranchesNoop(t *testing.T) {
 		},
 	}
 
-	succeeded, failed := restackAllBranches(repo.repo, s)
+	succeeded, failed := restackAllBranches(repo.repo, s, repo.metadata)
 	if len(succeeded) != 0 || len(failed) != 0 {
 		t.Fatalf("expected no restack operations")
 	}

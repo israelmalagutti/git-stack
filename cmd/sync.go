@@ -108,7 +108,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Println("\nRestacking branches...")
-		succeeded, failed := restackAllBranches(repo, s)
+		succeeded, failed := restackAllBranches(repo, s, metadata)
 
 		// Report results
 		if len(succeeded) > 0 || len(failed) > 0 {
@@ -398,7 +398,7 @@ func deleteBranchAndCleanup(repo *git.Repo, metadata *config.Metadata, branch st
 }
 
 // restackAllBranches restacks all branches in topological order, skipping those with conflicts
-func restackAllBranches(repo *git.Repo, s *stack.Stack) (succeeded, failed []string) {
+func restackAllBranches(repo *git.Repo, s *stack.Stack, metadata *config.Metadata) (succeeded, failed []string) {
 	branches := s.GetTopologicalOrder()
 
 	for _, node := range branches {
@@ -418,17 +418,27 @@ func restackAllBranches(repo *git.Repo, s *stack.Stack) (succeeded, failed []str
 
 		fmt.Printf("  Rebasing %s onto %s...", node.Name, node.Parent.Name)
 
-		// Try rebase
-		err = repo.Rebase(node.Name, node.Parent.Name)
+		// Try rebase (precise --onto or fallback)
+		err = restackBranchOnto(repo, metadata, node.Name, node.Parent.Name)
 		if err != nil {
 			// Abort and record failure
 			_ = repo.AbortRebase()
 			failed = append(failed, node.Name)
 			fmt.Println(" ✗ conflict")
 		} else {
+			// Update ParentRevision after successful rebase
+			parentSHA, _ := repo.GetBranchCommit(node.Parent.Name)
+			if parentSHA != "" {
+				_ = metadata.SetParentRevision(node.Name, parentSHA)
+			}
 			succeeded = append(succeeded, node.Name)
 			fmt.Println(" ✓")
 		}
+	}
+
+	// Save metadata if any rebases succeeded
+	if len(succeeded) > 0 {
+		_ = metadata.Save(repo.GetMetadataPath())
 	}
 
 	return succeeded, failed

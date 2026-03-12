@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+// GetContinueStatePath returns the path to gw continue state file
+func (r *Repo) GetContinueStatePath() string {
+	return filepath.Join(r.commonDir, ".gw_continue_state")
+}
+
 // Repo represents a git repository
 type Repo struct {
 	workDir   string

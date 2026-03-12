@@ -65,7 +65,7 @@ func TestCommitHelpersWithRepo(t *testing.T) {
 	repo, cfg, metadata, _, cleanup := setupStackRepo(t)
 	defer cleanup()
 
-	metadata.TrackBranch("feat-commit", "main")
+	metadata.TrackBranch("feat-commit", "main", "")
 	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
 		t.Fatalf("failed to save metadata: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestSortChildrenByTime(t *testing.T) {
 	if _, err := repo.RunGitCommand("commit", "--allow-empty", "-m", "old commit"); err != nil {
 		t.Fatalf("failed to commit: %v", err)
 	}
-	metadata.TrackBranch("feat-old", "main")
+	metadata.TrackBranch("feat-old", "main", "")
 
 	if err := repo.CheckoutBranch("main"); err != nil {
 		t.Fatalf("failed to checkout main: %v", err)
@@ -163,7 +163,7 @@ func TestSortChildrenByTime(t *testing.T) {
 	if _, err := repo.RunGitCommand("commit", "--allow-empty", "-m", "new commit"); err != nil {
 		t.Fatalf("failed to commit: %v", err)
 	}
-	metadata.TrackBranch("feat-new", "main")
+	metadata.TrackBranch("feat-new", "main", "")
 
 	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
 		t.Fatalf("failed to save metadata: %v", err)

@@ -117,7 +117,7 @@ func runUntrack(cmd *cobra.Command, args []string) error {
 
 	// Reparent children to this branch's parent
 	for _, child := range children {
-		metadata.TrackBranch(child, parent)
+		metadata.TrackBranch(child, parent, "")
 		fmt.Printf("%s Reparented %s to %s\n",
 			colors.Success("✓"),
 			colors.BranchChild(child),

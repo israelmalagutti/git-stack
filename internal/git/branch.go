@@ -212,6 +212,12 @@ func (r *Repo) Rebase(branch, onto string) error {
 	return err
 }
 
+// RebaseOnto replays only commits between oldBase and branch onto newBase
+func (r *Repo) RebaseOnto(branch, newBase, oldBase string) error {
+	_, err := r.RunGitCommand("rebase", "--onto", newBase, oldBase, branch)
+	return err
+}
+
 // AbortRebase aborts an in-progress rebase
 func (r *Repo) AbortRebase() error {
 	_, err := r.RunGitCommand("rebase", "--abort")

@@ -129,7 +129,8 @@ func runTrack(cmd *cobra.Command, args []string) error {
 	}
 
 	// Track the branch
-	metadata.TrackBranch(branchToTrack, parent)
+	parentSHA, _ := repo.GetBranchCommit(parent)
+	metadata.TrackBranch(branchToTrack, parent, parentSHA)
 
 	// Save metadata
 	if err := metadata.Save(repo.GetMetadataPath()); err != nil {

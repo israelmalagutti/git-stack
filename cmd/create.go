@@ -106,7 +106,8 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load metadata: %w", err)
 	}
 
-	metadata.TrackBranch(branchName, currentBranch)
+	parentSHA, _ := repo.GetBranchCommit(currentBranch)
+	metadata.TrackBranch(branchName, currentBranch, parentSHA)
 
 	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
 		return fmt.Errorf("failed to save metadata: %w", err)

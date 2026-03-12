@@ -50,7 +50,7 @@ func TestRestackAllBranchesConflict(t *testing.T) {
 		},
 	}
 
-	_, failed := restackAllBranches(repo.repo, s)
+	_, failed := restackAllBranches(repo.repo, s, repo.metadata)
 	if len(failed) == 0 {
 		t.Fatalf("expected conflict in restackAllBranches")
 	}

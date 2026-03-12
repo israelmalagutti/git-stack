@@ -36,7 +36,7 @@ func TestMetadataUpdateParentErrors(t *testing.T) {
 		t.Fatalf("expected error updating missing branch")
 	}
 
-	meta.TrackBranch("child", "main")
+	meta.TrackBranch("child", "main", "")
 	if err := meta.UpdateParent("child", "new-parent"); err != nil {
 		t.Fatalf("unexpected error updating parent: %v", err)
 	}

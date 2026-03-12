@@ -81,7 +81,7 @@ func TestBuildStack(t *testing.T) {
 	if err := repo.CreateBranch("feat-1"); err != nil {
 		t.Fatalf("failed to create branch: %v", err)
 	}
-	metadata.TrackBranch("feat-1", "main")
+	metadata.TrackBranch("feat-1", "main", "")
 	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
 		t.Fatalf("failed to save metadata: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestBuildStackSkipsMissingBranch(t *testing.T) {
 	repo, cfg, metadata, _, cleanup := setupStackRepo(t)
 	defer cleanup()
 
-	metadata.TrackBranch("missing-branch", "main")
+	metadata.TrackBranch("missing-branch", "main", "")
 	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
 		t.Fatalf("failed to save metadata: %v", err)
 	}

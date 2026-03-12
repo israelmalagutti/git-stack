@@ -103,18 +103,20 @@ func runRename(cmd *cobra.Command, args []string) error {
 	if metadata.IsTracked(currentBranch) {
 		parent, _ := metadata.GetParent(currentBranch)
 		children := metadata.GetChildren(currentBranch)
+		existingParentRev := metadata.GetParentRevision(currentBranch)
 
 		// Untrack old name
 		metadata.UntrackBranch(currentBranch)
 
-		// Track with new name
-		metadata.TrackBranch(newName, parent)
+		// Track with new name (preserve existing parentRevision)
+		metadata.TrackBranch(newName, parent, existingParentRev)
 
 		// Update children to point to new parent name
 		for _, child := range children {
 			childParent, _ := metadata.GetParent(child)
 			if childParent == currentBranch {
-				metadata.TrackBranch(child, newName)
+				childParentRev := metadata.GetParentRevision(child)
+				metadata.TrackBranch(child, newName, childParentRev)
 			}
 		}
 

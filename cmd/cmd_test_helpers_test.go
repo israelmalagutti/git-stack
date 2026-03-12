@@ -101,7 +101,7 @@ func (r *cmdTestRepo) createBranch(t *testing.T, name, parent string) {
 	if err := r.repo.CheckoutBranch(name); err != nil {
 		t.Fatalf("failed to checkout %s: %v", name, err)
 	}
-	r.metadata.TrackBranch(name, parent)
+	r.metadata.TrackBranch(name, parent, "")
 	if err := r.metadata.Save(r.repo.GetMetadataPath()); err != nil {
 		t.Fatalf("failed to save metadata: %v", err)
 	}

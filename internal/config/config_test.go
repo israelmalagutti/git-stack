@@ -96,7 +96,7 @@ func TestMetadata(t *testing.T) {
 	t.Run("TrackBranch adds branch", func(t *testing.T) {
 		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
 
-		meta.TrackBranch("feat-1", "main")
+		meta.TrackBranch("feat-1", "main", "")
 
 		if !meta.IsTracked("feat-1") {
 			t.Error("feat-1 should be tracked")
@@ -113,7 +113,7 @@ func TestMetadata(t *testing.T) {
 
 	t.Run("UntrackBranch removes branch", func(t *testing.T) {
 		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
-		meta.TrackBranch("feat-2", "main")
+		meta.TrackBranch("feat-2", "main", "")
 
 		meta.UntrackBranch("feat-2")
 
@@ -124,7 +124,7 @@ func TestMetadata(t *testing.T) {
 
 	t.Run("UpdateParent changes parent", func(t *testing.T) {
 		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
-		meta.TrackBranch("feat-3", "main")
+		meta.TrackBranch("feat-3", "main", "")
 
 		err := meta.UpdateParent("feat-3", "feat-1")
 		if err != nil {
@@ -148,9 +148,9 @@ func TestMetadata(t *testing.T) {
 
 	t.Run("GetChildren returns child branches", func(t *testing.T) {
 		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
-		meta.TrackBranch("feat-1", "main")
-		meta.TrackBranch("feat-2", "main")
-		meta.TrackBranch("feat-3", "feat-1")
+		meta.TrackBranch("feat-1", "main", "")
+		meta.TrackBranch("feat-2", "main", "")
+		meta.TrackBranch("feat-3", "feat-1", "")
 
 		children := meta.GetChildren("main")
 		if len(children) != 2 {
@@ -165,8 +165,8 @@ func TestMetadata(t *testing.T) {
 
 	t.Run("saves and loads metadata", func(t *testing.T) {
 		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
-		meta.TrackBranch("feat-a", "main")
-		meta.TrackBranch("feat-b", "feat-a")
+		meta.TrackBranch("feat-a", "main", "")
+		meta.TrackBranch("feat-b", "feat-a", "")
 
 		metadataPath := filepath.Join(tmpDir, ".gw_metadata")
 		if err := meta.Save(metadataPath); err != nil {

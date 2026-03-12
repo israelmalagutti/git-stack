@@ -264,7 +264,8 @@ func splitByCommitMode(repo *git.Repo, cfg *config.Config, metadata *config.Meta
 	}
 
 	// Track new branch with parent as its parent
-	metadata.TrackBranch(newBranchName, parentBranch)
+	parentSHA, _ := repo.GetBranchCommit(parentBranch)
+	metadata.TrackBranch(newBranchName, parentBranch, parentSHA)
 	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
@@ -364,7 +365,8 @@ func splitByHunkMode(repo *git.Repo, cfg *config.Config, metadata *config.Metada
 	}
 
 	// Track new branch
-	metadata.TrackBranch(newBranchName, parentBranch)
+	parentSHA, _ := repo.GetBranchCommit(parentBranch)
+	metadata.TrackBranch(newBranchName, parentBranch, parentSHA)
 	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
@@ -478,7 +480,8 @@ func splitByFileMode(repo *git.Repo, cfg *config.Config, metadata *config.Metada
 	}
 
 	// Track new branch
-	metadata.TrackBranch(newBranchName, parentBranch)
+	parentSHA, _ := repo.GetBranchCommit(parentBranch)
+	metadata.TrackBranch(newBranchName, parentBranch, parentSHA)
 	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
