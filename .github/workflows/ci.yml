@@ -7,23 +7,6 @@ on:
     branches: [main]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-
-      - name: Build
-        run: make build
-
-      - name: Test
-        run: make test
-
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -39,18 +22,9 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.64.8
-          skip-cache: true
-        continue-on-error: true
 
-  build-matrix:
+  test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
-        exclude:
-          - goos: windows
-            goarch: arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,13 +34,8 @@ jobs:
         with:
           go-version-file: 'go.mod'
 
-      - name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: |
-          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
-          COMMIT=$(git rev-parse --short HEAD)
-          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          LDFLAGS="-s -w -X github.com/israelmalagutti/git-wrapper/cmd.Version=${VERSION} -X github.com/israelmalagutti/git-wrapper/cmd.Commit=${COMMIT} -X github.com/israelmalagutti/git-wrapper/cmd.BuildDate=${BUILD_DATE}"
-          go build -ldflags "${LDFLAGS}" -o gw-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} .
+      - name: Build
+        run: make build
+
+      - name: Test
+        run: go test -race ./...
