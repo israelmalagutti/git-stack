@@ -15,6 +15,7 @@ import (
 var (
 	syncForce   bool
 	syncRestack bool
+	syncDelete  bool
 )
 
 var syncCmd = &cobra.Command{
@@ -38,6 +39,7 @@ Example:
 func init() {
 	syncCmd.Flags().BoolVarP(&syncForce, "force", "f", false, "Don't prompt for confirmation")
 	syncCmd.Flags().BoolVarP(&syncRestack, "restack", "r", true, "Restack branches after syncing")
+	syncCmd.Flags().BoolVarP(&syncDelete, "delete", "d", true, "Check for and delete merged branches")
 	rootCmd.AddCommand(syncCmd)
 }
 
@@ -60,6 +62,15 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load metadata: %w", err)
 	}
 
+	// Abort if working tree is dirty
+	dirty, err := repo.HasUncommittedChanges()
+	if err != nil {
+		return fmt.Errorf("failed to check working tree: %w", err)
+	}
+	if dirty {
+		return fmt.Errorf("you have uncommitted changes. Please commit or stash them before syncing")
+	}
+
 	// Save original branch to return to
 	originalBranch, _ := repo.GetCurrentBranch()
 
@@ -77,13 +88,15 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 
 	// 3. Clean up stale branches from metadata
-	if err := cleanStaleBranches(repo, metadata, syncForce); err != nil {
+	if err := cleanStaleBranches(repo, metadata, cfg, syncForce); err != nil {
 		return err
 	}
 
 	// 4. Find and prompt to delete merged branches
-	if err := deleteMergedBranches(repo, metadata, cfg.Trunk, syncForce); err != nil {
-		return err
+	if syncDelete {
+		if err := deleteMergedBranches(repo, metadata, cfg.Trunk, syncForce); err != nil {
+			return err
+		}
 	}
 
 	// 5. Auto-restack all branches without conflicts
@@ -205,8 +218,9 @@ func syncTrunkWithRemote(repo *git.Repo, trunk string, force bool) error {
 	return nil
 }
 
-// cleanStaleBranches removes branches from metadata that no longer exist in git
-func cleanStaleBranches(repo *git.Repo, metadata *config.Metadata, force bool) error {
+// cleanStaleBranches removes branches from metadata that no longer exist in git,
+// reparenting their children to the nearest living ancestor first
+func cleanStaleBranches(repo *git.Repo, metadata *config.Metadata, cfg *config.Config, force bool) error {
 	var staleBranches []string
 
 	for branch := range metadata.Branches {
@@ -231,6 +245,41 @@ func cleanStaleBranches(repo *git.Repo, metadata *config.Metadata, force bool) e
 		}
 	}
 
+	// Build stale set for O(1) lookup
+	staleSet := make(map[string]bool)
+	for _, b := range staleBranches {
+		staleSet[b] = true
+	}
+
+	// Reparent living children of stale branches to nearest living ancestor
+	for branch := range metadata.Branches {
+		if staleSet[branch] {
+			continue
+		}
+		parent, ok := metadata.GetParent(branch)
+		if !ok || !staleSet[parent] {
+			continue
+		}
+
+		// Walk up to find nearest non-stale ancestor
+		newParent := parent
+		visited := make(map[string]bool)
+		for staleSet[newParent] {
+			visited[newParent] = true
+			p, ok := metadata.GetParent(newParent)
+			if !ok || p == "" || visited[p] {
+				newParent = cfg.Trunk
+				break
+			}
+			newParent = p
+		}
+
+		if err := metadata.UpdateParent(branch, newParent); err == nil {
+			fmt.Printf("  Reparented %s → %s\n", branch, newParent)
+		}
+	}
+
+	// Untrack all stale branches
 	for _, branch := range staleBranches {
 		metadata.UntrackBranch(branch)
 	}

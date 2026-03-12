@@ -50,7 +50,7 @@ func TestCleanStaleBranchesPromptNo(t *testing.T) {
 	os.Stdin = r
 	defer func() { os.Stdin = origStdin }()
 
-	if err := cleanStaleBranches(repo.repo, repo.metadata, false); err != nil {
+	if err := cleanStaleBranches(repo.repo, repo.metadata, repo.cfg, false); err != nil {
 		t.Fatalf("cleanStaleBranches failed: %v", err)
 	}
 	if !repo.metadata.IsTracked("stale-branch") {

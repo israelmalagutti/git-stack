@@ -127,7 +127,7 @@ func TestSyncHelpers(t *testing.T) {
 
 	// Add stale branch to metadata
 	metadata.TrackBranch("stale-branch", "main")
-	if err := cleanStaleBranches(repo, metadata, true); err != nil {
+	if err := cleanStaleBranches(repo, metadata, cfg, true); err != nil {
 		t.Fatalf("cleanStaleBranches failed: %v", err)
 	}
 

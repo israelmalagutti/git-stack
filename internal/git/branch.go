@@ -147,9 +147,9 @@ func (r *Repo) ResetToRemote(branch, remoteBranch string) error {
 	return nil
 }
 
-// IsMergedInto checks if branch is merged into target
+// IsMergedInto checks if branch is merged into target (regular merge or squash merge)
 func (r *Repo) IsMergedInto(branch, target string) (bool, error) {
-	// Get branches merged into target
+	// Fast check: regular merge (branch is ancestor of target)
 	output, err := r.RunGitCommand("branch", "--merged", target, "--format=%(refname:short)")
 	if err != nil {
 		return false, fmt.Errorf("failed to check merged branches: %w", err)
@@ -161,7 +161,31 @@ func (r *Repo) IsMergedInto(branch, target string) (bool, error) {
 			return true, nil
 		}
 	}
-	return false, nil
+
+	// Squash-merge check: if merging branch into target would produce
+	// the same tree as target, the branch's changes are already there
+	mergeTreeOutput, err := r.RunGitCommand("merge-tree", "--write-tree", target, branch)
+	if err != nil {
+		// Merge would have conflicts — not merged
+		return false, nil
+	}
+	mergeTree := strings.TrimSpace(strings.Split(mergeTreeOutput, "\n")[0])
+
+	targetTree, err := r.RunGitCommand("rev-parse", target+"^{tree}")
+	if err != nil {
+		return false, err
+	}
+
+	return mergeTree == strings.TrimSpace(targetTree), nil
+}
+
+// HasUncommittedChanges checks if the working tree has staged or unstaged changes to tracked files
+func (r *Repo) HasUncommittedChanges() (bool, error) {
+	output, err := r.RunGitCommand("status", "--porcelain", "-uno")
+	if err != nil {
+		return false, fmt.Errorf("failed to check working tree status: %w", err)
+	}
+	return strings.TrimSpace(output) != "", nil
 }
 
 // IsBehind checks if branch is behind its parent (needs rebase)
