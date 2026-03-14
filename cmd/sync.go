@@ -1,15 +1,14 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/israelmalagutti/git-stack/internal/config"
 	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var (
@@ -444,33 +443,53 @@ func restackAllBranches(repo *git.Repo, s *stack.Stack, metadata *config.Metadat
 	return succeeded, failed
 }
 
-// confirm reads a y/n response from stdin
+// readKeyFn reads a single keypress from stdin. Swappable for testing.
+var readKeyFn = readKey
+
+func readKey() (byte, error) {
+	fd := int(os.Stdin.Fd())
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		// Fallback for non-terminal (e.g. pipes in tests)
+		b := make([]byte, 1)
+		if _, err := os.Stdin.Read(b); err != nil {
+			return 0, err
+		}
+		return b[0], nil
+	}
+	defer term.Restore(fd, oldState)
+
+	b := make([]byte, 1)
+	if _, err := os.Stdin.Read(b); err != nil {
+		return 0, err
+	}
+	return b[0], nil
+}
+
+// confirm reads a single y/n keypress from stdin (no Enter required)
 func confirm() bool {
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
+	b, err := readKeyFn()
+	fmt.Println() // move past the prompt line
 	if err != nil {
 		return false
 	}
-	response = strings.TrimSpace(strings.ToLower(response))
-	return response == "y" || response == "yes"
+	return b == 'y' || b == 'Y'
 }
 
-// confirmWithOptions reads a response with y/n/a/q options
+// confirmWithOptions reads a single y/n/a/q keypress from stdin (no Enter required)
 // Returns: "yes", "no", "all", or "quit"
 func confirmWithOptions() string {
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
+	b, err := readKeyFn()
+	fmt.Println() // move past the prompt line
 	if err != nil {
 		return "no"
 	}
-	response = strings.TrimSpace(strings.ToLower(response))
-
-	switch response {
-	case "y", "yes":
+	switch b {
+	case 'y', 'Y':
 		return "yes"
-	case "a", "all":
+	case 'a', 'A':
 		return "all"
-	case "q", "quit":
+	case 'q', 'Q':
 		return "quit"
 	default:
 		return "no"

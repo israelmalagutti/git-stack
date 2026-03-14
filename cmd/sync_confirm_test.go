@@ -1,72 +1,71 @@
 package cmd
 
 import (
-	"os"
 	"testing"
 )
 
-func TestSyncConfirmHelpers(t *testing.T) {
-	origStdin := os.Stdin
-	defer func() { os.Stdin = origStdin }()
+func withReadKey(key byte, fn func()) {
+	prev := readKeyFn
+	readKeyFn = func() (byte, error) { return key, nil }
+	defer func() { readKeyFn = prev }()
+	fn()
+}
 
+func withReadKeySequence(keys []byte, fn func()) {
+	prev := readKeyFn
+	idx := 0
+	readKeyFn = func() (byte, error) {
+		if idx >= len(keys) {
+			return 'n', nil
+		}
+		b := keys[idx]
+		idx++
+		return b, nil
+	}
+	defer func() { readKeyFn = prev }()
+	fn()
+}
+
+func TestSyncConfirmHelpers(t *testing.T) {
 	tests := []struct {
-		input  string
+		key    byte
 		expect bool
 	}{
-		{"y\n", true},
-		{"yes\n", true},
-		{"n\n", false},
-		{"\n", false},
+		{'y', true},
+		{'Y', true},
+		{'n', false},
+		{'x', false},
 	}
 
 	for _, tc := range tests {
-		r, w, err := os.Pipe()
-		if err != nil {
-			t.Fatalf("failed to create pipe: %v", err)
-		}
-		if _, err := w.Write([]byte(tc.input)); err != nil {
-			t.Fatalf("failed to write pipe: %v", err)
-		}
-		w.Close()
-		os.Stdin = r
-
-		if got := confirm(); got != tc.expect {
-			t.Fatalf("confirm(%q) = %v, want %v", tc.input, got, tc.expect)
-		}
+		withReadKey(tc.key, func() {
+			if got := confirm(); got != tc.expect {
+				t.Fatalf("confirm(%c) = %v, want %v", tc.key, got, tc.expect)
+			}
+		})
 	}
 }
 
 func TestSyncConfirmWithOptions(t *testing.T) {
-	origStdin := os.Stdin
-	defer func() { os.Stdin = origStdin }()
-
 	tests := []struct {
-		input  string
+		key    byte
 		expect string
 	}{
-		{"y\n", "yes"},
-		{"yes\n", "yes"},
-		{"a\n", "all"},
-		{"all\n", "all"},
-		{"q\n", "quit"},
-		{"quit\n", "quit"},
-		{"n\n", "no"},
-		{"\n", "no"},
+		{'y', "yes"},
+		{'Y', "yes"},
+		{'a', "all"},
+		{'A', "all"},
+		{'q', "quit"},
+		{'Q', "quit"},
+		{'n', "no"},
+		{'x', "no"},
 	}
 
 	for _, tc := range tests {
-		r, w, err := os.Pipe()
-		if err != nil {
-			t.Fatalf("failed to create pipe: %v", err)
-		}
-		if _, err := w.Write([]byte(tc.input)); err != nil {
-			t.Fatalf("failed to write pipe: %v", err)
-		}
-		w.Close()
-		os.Stdin = r
-
-		if got := confirmWithOptions(); got != tc.expect {
-			t.Fatalf("confirmWithOptions(%q) = %s, want %s", tc.input, got, tc.expect)
-		}
+		withReadKey(tc.key, func() {
+			if got := confirmWithOptions(); got != tc.expect {
+				t.Fatalf("confirmWithOptions(%c) = %s, want %s", tc.key, got, tc.expect)
+			}
+		})
 	}
 }

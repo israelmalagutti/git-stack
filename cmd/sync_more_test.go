@@ -38,24 +38,14 @@ func TestCleanStaleBranchesPromptNo(t *testing.T) {
 		t.Fatalf("failed to save metadata: %v", err)
 	}
 
-	origStdin := os.Stdin
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
-	if _, err := w.Write([]byte("n\n")); err != nil {
-		t.Fatalf("failed to write pipe: %v", err)
-	}
-	w.Close()
-	os.Stdin = r
-	defer func() { os.Stdin = origStdin }()
-
-	if err := cleanStaleBranches(repo.repo, repo.metadata, repo.cfg, false); err != nil {
-		t.Fatalf("cleanStaleBranches failed: %v", err)
-	}
-	if !repo.metadata.IsTracked("stale-branch") {
-		t.Fatalf("expected stale branch to remain when user declines")
-	}
+	withReadKey('n', func() {
+		if err := cleanStaleBranches(repo.repo, repo.metadata, repo.cfg, false); err != nil {
+			t.Fatalf("cleanStaleBranches failed: %v", err)
+		}
+		if !repo.metadata.IsTracked("stale-branch") {
+			t.Fatalf("expected stale branch to remain when user declines")
+		}
+	})
 }
 
 func TestDeleteMergedBranchesPromptQuit(t *testing.T) {
@@ -74,21 +64,11 @@ func TestDeleteMergedBranchesPromptQuit(t *testing.T) {
 		t.Fatalf("failed to merge: %v", err)
 	}
 
-	origStdin := os.Stdin
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
-	if _, err := w.Write([]byte("q\n")); err != nil {
-		t.Fatalf("failed to write pipe: %v", err)
-	}
-	w.Close()
-	os.Stdin = r
-	defer func() { os.Stdin = origStdin }()
-
-	if err := deleteMergedBranches(repo.repo, repo.metadata, "main", false); err != nil {
-		t.Fatalf("deleteMergedBranches quit failed: %v", err)
-	}
+	withReadKey('q', func() {
+		if err := deleteMergedBranches(repo.repo, repo.metadata, "main", false); err != nil {
+			t.Fatalf("deleteMergedBranches quit failed: %v", err)
+		}
+	})
 }
 
 func TestRestackAllBranchesSuccess(t *testing.T) {
@@ -268,19 +248,10 @@ func TestRunSyncInteractiveFlow(t *testing.T) {
 	syncForce = false
 	syncRestack = true
 
-	origStdin := os.Stdin
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
-	if _, err := w.Write([]byte("y\ny\na\n")); err != nil {
-		t.Fatalf("failed to write pipe: %v", err)
-	}
-	w.Close()
-	os.Stdin = r
-	defer func() { os.Stdin = origStdin }()
-
-	if err := runSync(nil, nil); err != nil {
-		t.Fatalf("runSync interactive failed: %v", err)
-	}
+	// y = reset trunk, y = clean stale, a = delete all merged
+	withReadKeySequence([]byte{'y', 'y', 'a'}, func() {
+		if err := runSync(nil, nil); err != nil {
+			t.Fatalf("runSync interactive failed: %v", err)
+		}
+	})
 }

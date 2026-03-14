@@ -204,19 +204,9 @@ func TestSyncTrunkWithRemoteConfirmSkip(t *testing.T) {
 	}
 
 	// Decline reset
-	origStdin := os.Stdin
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
-	if _, err := w.Write([]byte("n\n")); err != nil {
-		t.Fatalf("failed to write pipe: %v", err)
-	}
-	w.Close()
-	os.Stdin = r
-	defer func() { os.Stdin = origStdin }()
-
-	if err := syncTrunkWithRemote(repo, "main", false); err != nil {
-		t.Fatalf("syncTrunkWithRemote failed: %v", err)
-	}
+	withReadKey('n', func() {
+		if err := syncTrunkWithRemote(repo, "main", false); err != nil {
+			t.Fatalf("syncTrunkWithRemote failed: %v", err)
+		}
+	})
 }

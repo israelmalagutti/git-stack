@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"os"
 	"testing"
 )
 
@@ -33,19 +32,9 @@ func TestDeleteMergedBranchesPromptAll(t *testing.T) {
 		t.Fatalf("failed to merge feat-merged-2: %v", err)
 	}
 
-	origStdin := os.Stdin
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
-	if _, err := w.Write([]byte("a\n")); err != nil {
-		t.Fatalf("failed to write pipe: %v", err)
-	}
-	w.Close()
-	os.Stdin = r
-	defer func() { os.Stdin = origStdin }()
-
-	if err := deleteMergedBranches(repo.repo, repo.metadata, "main", false); err != nil {
-		t.Fatalf("deleteMergedBranches prompt failed: %v", err)
-	}
+	withReadKey('a', func() {
+		if err := deleteMergedBranches(repo.repo, repo.metadata, "main", false); err != nil {
+			t.Fatalf("deleteMergedBranches prompt failed: %v", err)
+		}
+	})
 }
