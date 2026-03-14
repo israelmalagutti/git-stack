@@ -36,18 +36,18 @@ commit "README.md" "# Test Project" "initial commit"
 commit "shared.txt" "line 1: original from main" "add shared.txt"
 
 # ─── Initialize gs ──────────────────────────────────────────────────────────
-# Create .gw_config and .gw_stack_metadata in .git/ (same as `gs init`)
-cat > .git/.gw_config <<'GWCONFIG'
+# Create .gs_config and .gs_stack_metadata in .git/ (same as `gs init`)
+cat > .git/.gs_config <<'GSCONFIG'
 {
   "version": "1.0.0",
   "trunk": "main",
   "initialized": "2026-03-11T00:00:00Z"
 }
-GWCONFIG
+GSCONFIG
 
 # We'll build the metadata JSON at the end after all branches exist.
 # For now, create an empty one so gs commands don't fail mid-script.
-echo '{"branches":{}}' > .git/.gw_stack_metadata
+echo '{"branches":{}}' > .git/.gs_stack_metadata
 
 # ─── Level 1: three direct children of main ─────────────────────────────────
 
@@ -128,7 +128,7 @@ commit "shared.txt" "line 1: AMENDED by main (diverged)" \
 # ─── Write gs stack metadata (track all branches) ───────────────────────────
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-cat > .git/.gw_stack_metadata <<EOF
+cat > .git/.gs_stack_metadata <<EOF
 {
   "branches": {
     "TEST_1":       {"parent": "main",       "tracked": true, "created": "$NOW"},

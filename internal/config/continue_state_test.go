@@ -8,7 +8,7 @@ import (
 
 func TestContinueStateSaveAndLoad(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, ".gw_continue_state")
+	path := filepath.Join(dir, ".gs_continue_state")
 
 	state := &ContinueState{
 		RemainingBranches: []string{"feat-a", "feat-b", "feat-c"},
@@ -52,7 +52,7 @@ func TestContinueStateLoadNonExistent(t *testing.T) {
 
 func TestContinueStateLoadInvalidJSON(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, ".gw_continue_state")
+	path := filepath.Join(dir, ".gs_continue_state")
 
 	if err := os.WriteFile(path, []byte("{bad json"), 0600); err != nil {
 		t.Fatalf("failed to write file: %v", err)
@@ -66,7 +66,7 @@ func TestContinueStateLoadInvalidJSON(t *testing.T) {
 
 func TestClearContinueState(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, ".gw_continue_state")
+	path := filepath.Join(dir, ".gs_continue_state")
 
 	state := &ContinueState{
 		RemainingBranches: []string{"feat-a"},

@@ -279,7 +279,7 @@ func TestGetContinueStatePath(t *testing.T) {
 	}
 
 	// Should be in git common dir
-	expected := filepath.Join(repo.repo.GetCommonDir(), ".gw_continue_state")
+	expected := filepath.Join(repo.repo.GetCommonDir(), ".gs_continue_state")
 	if path != expected {
 		t.Errorf("expected path %s, got %s", expected, path)
 	}

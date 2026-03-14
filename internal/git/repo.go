@@ -9,7 +9,7 @@ import (
 
 // GetContinueStatePath returns the path to gs continue state file
 func (r *Repo) GetContinueStatePath() string {
-	return filepath.Join(r.commonDir, ".gw_continue_state")
+	return filepath.Join(r.commonDir, ".gs_continue_state")
 }
 
 // Repo represents a git repository
@@ -76,12 +76,12 @@ func (r *Repo) GetWorkDir() string {
 
 // GetConfigPath returns the path to gs config file
 func (r *Repo) GetConfigPath() string {
-	return filepath.Join(r.commonDir, ".gw_config")
+	return filepath.Join(r.commonDir, ".gs_config")
 }
 
 // GetMetadataPath returns the path to gs metadata file
 func (r *Repo) GetMetadataPath() string {
-	return filepath.Join(r.commonDir, ".gw_stack_metadata")
+	return filepath.Join(r.commonDir, ".gs_stack_metadata")
 }
 
 // RunGitCommand executes a git command and returns output

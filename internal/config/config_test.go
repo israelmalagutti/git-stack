@@ -35,7 +35,7 @@ func TestConfig(t *testing.T) {
 
 	t.Run("saves and loads config", func(t *testing.T) {
 		cfg := NewConfig("develop")
-		configPath := filepath.Join(tmpDir, ".gw_config")
+		configPath := filepath.Join(tmpDir, ".gs_config")
 
 		if err := cfg.Save(configPath); err != nil {
 			t.Fatalf("Save failed: %v", err)
@@ -168,7 +168,7 @@ func TestMetadata(t *testing.T) {
 		meta.TrackBranch("feat-a", "main", "")
 		meta.TrackBranch("feat-b", "feat-a", "")
 
-		metadataPath := filepath.Join(tmpDir, ".gw_metadata")
+		metadataPath := filepath.Join(tmpDir, ".gs_metadata")
 		if err := meta.Save(metadataPath); err != nil {
 			t.Fatalf("Save failed: %v", err)
 		}

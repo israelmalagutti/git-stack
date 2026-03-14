@@ -306,8 +306,8 @@ func TestGetConfigPath(t *testing.T) {
 
 	t.Run("returns config path", func(t *testing.T) {
 		path := repo.GetConfigPath()
-		if !strings.HasSuffix(path, ".gw_config") {
-			t.Errorf("expected path ending with .gw_config, got '%s'", path)
+		if !strings.HasSuffix(path, ".gs_config") {
+			t.Errorf("expected path ending with .gs_config, got '%s'", path)
 		}
 	})
 }
@@ -320,8 +320,8 @@ func TestGetMetadataPath(t *testing.T) {
 
 	t.Run("returns metadata path", func(t *testing.T) {
 		path := repo.GetMetadataPath()
-		if !strings.HasSuffix(path, ".gw_stack_metadata") {
-			t.Errorf("expected path ending with .gw_stack_metadata, got '%s'", path)
+		if !strings.HasSuffix(path, ".gs_stack_metadata") {
+			t.Errorf("expected path ending with .gs_stack_metadata, got '%s'", path)
 		}
 	})
 }

@@ -60,7 +60,7 @@ func TestParentRevisionTracking(t *testing.T) {
 
 	t.Run("parentRevision persists through save/load", func(t *testing.T) {
 		dir := t.TempDir()
-		path := filepath.Join(dir, ".gw_metadata")
+		path := filepath.Join(dir, ".gs_metadata")
 
 		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
 		meta.TrackBranch("feat-1", "main", "abc123")
@@ -88,7 +88,7 @@ func TestParentRevisionTracking(t *testing.T) {
 
 	t.Run("omitempty: parentRevision omitted from JSON when empty", func(t *testing.T) {
 		dir := t.TempDir()
-		path := filepath.Join(dir, ".gw_metadata")
+		path := filepath.Join(dir, ".gs_metadata")
 
 		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
 		meta.TrackBranch("feat-1", "main", "")
