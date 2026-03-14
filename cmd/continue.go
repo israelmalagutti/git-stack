@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/israelmalagutti/git-wrapper/internal/colors"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/colors"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +27,7 @@ Use this after resolving merge conflicts during a restack operation.
 Example:
   # After resolving conflicts:
   git add .
-  gw continue`,
+  gs continue`,
 	RunE: runContinue,
 }
 
@@ -189,7 +189,7 @@ func continueRestackChildren(repo *git.Repo, s *stack.Stack, parent *stack.Node)
 				fmt.Println(colors.Muted("To continue:"))
 				fmt.Println(colors.Muted("  1. Resolve conflicts"))
 				fmt.Println(colors.Muted("  2. git add ."))
-				fmt.Println(colors.Muted("  3. gw continue"))
+				fmt.Println(colors.Muted("  3. gs continue"))
 				fmt.Println()
 				fmt.Println(colors.Muted("To abort: git rebase --abort"))
 				return fmt.Errorf("rebase conflict")

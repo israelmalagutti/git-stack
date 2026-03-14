@@ -1,7 +1,7 @@
 .PHONY: build build-all install clean test release help
 
 # Binary name
-BINARY_NAME=gw
+BINARY_NAME=gs
 INSTALL_PATH=/usr/local/bin
 
 # Version info from git
@@ -10,7 +10,7 @@ COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Build flags
-LDFLAGS=-ldflags "-s -w -X github.com/israelmalagutti/git-wrapper/cmd.Version=$(VERSION) -X github.com/israelmalagutti/git-wrapper/cmd.Commit=$(COMMIT) -X github.com/israelmalagutti/git-wrapper/cmd.BuildDate=$(BUILD_DATE)"
+LDFLAGS=-ldflags "-s -w -X github.com/israelmalagutti/git-stack/cmd.Version=$(VERSION) -X github.com/israelmalagutti/git-stack/cmd.Commit=$(COMMIT) -X github.com/israelmalagutti/git-stack/cmd.BuildDate=$(BUILD_DATE)"
 
 # Build the binary for current platform
 build:
@@ -105,7 +105,7 @@ version:
 
 # Show help
 help:
-	@echo "gw $(VERSION) - Makefile targets:"
+	@echo "gs $(VERSION) - Makefile targets:"
 	@echo ""
 	@echo "  make build        - Build binary for current platform"
 	@echo "  make build-all    - Build for Linux, macOS, Windows (amd64/arm64)"

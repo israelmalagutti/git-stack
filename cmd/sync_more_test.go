@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 )
 
 func TestRunSyncNoRemote(t *testing.T) {

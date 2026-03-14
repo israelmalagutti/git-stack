@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -23,9 +23,9 @@ If no branch is specified, deletes the current branch.
 Prompts for confirmation unless --force is used.
 
 Example:
-  gw delete feat-old       # Delete feat-old branch
-  gw delete                # Delete current branch (interactive)
-  gw delete -f feat-old    # Delete without confirmation`,
+  gs delete feat-old       # Delete feat-old branch
+  gs delete                # Delete current branch (interactive)
+  gs delete -f feat-old    # Delete without confirmation`,
 	Aliases: []string{"d", "remove", "rm"},
 	RunE:    runDelete,
 }
@@ -125,7 +125,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	if !metadata.IsTracked(branchToDelete) {
-		return fmt.Errorf("branch '%s' is not tracked by gw", branchToDelete)
+		return fmt.Errorf("branch '%s' is not tracked by gs", branchToDelete)
 	}
 
 	// Build stack to get parent and children

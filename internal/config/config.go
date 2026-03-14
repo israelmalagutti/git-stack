@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Config represents the gw configuration
+// Config represents the gs configuration
 type Config struct {
 	Version     string    `json:"version"`
 	Trunk       string    `json:"trunk"`
@@ -19,7 +19,7 @@ func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("gw not initialized (run 'gw init')")
+			return nil, fmt.Errorf("gs not initialized (run 'gs init')")
 		}
 		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
@@ -55,7 +55,7 @@ func NewConfig(trunk string) *Config {
 	}
 }
 
-// IsInitialized checks if gw is initialized in the given path
+// IsInitialized checks if gs is initialized in the given path
 func IsInitialized(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil

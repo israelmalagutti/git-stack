@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
 )
 
 func TestRunSync(t *testing.T) {

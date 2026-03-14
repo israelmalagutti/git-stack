@@ -6,9 +6,9 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -27,12 +27,12 @@ If no target is specified, opens an interactive selector to choose the new paren
 If no source is specified, moves the current branch.
 
 Example:
-  gw move feat-base                    # Move current branch onto feat-base
-  gw move                              # Interactive selection
-  gw move -o feat-base                 # Using --onto flag
-  gw move -t feat-base                 # Using --target flag (alias for --onto)
-  gw move -s feat-2 -o main            # Move feat-2 onto main
-  gw mv --source feat-3 feat-1         # Move feat-3 onto feat-1`,
+  gs move feat-base                    # Move current branch onto feat-base
+  gs move                              # Interactive selection
+  gs move -o feat-base                 # Using --onto flag
+  gs move -t feat-base                 # Using --target flag (alias for --onto)
+  gs move -s feat-2 -o main            # Move feat-2 onto main
+  gs mv --source feat-3 feat-1         # Move feat-3 onto feat-1`,
 	Aliases: []string{"mv"},
 	RunE:    runMove,
 }
@@ -82,7 +82,7 @@ func runMove(cmd *cobra.Command, args []string) error {
 
 	// Check if source branch is tracked
 	if !metadata.IsTracked(sourceBranch) {
-		return fmt.Errorf("branch '%s' is not tracked by gw", sourceBranch)
+		return fmt.Errorf("branch '%s' is not tracked by gs", sourceBranch)
 	}
 
 	// Determine target branch

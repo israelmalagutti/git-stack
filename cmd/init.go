@@ -6,15 +6,15 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/spf13/cobra"
 )
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize gw in the current repository",
-	Long: `Initialize gw in the current git repository by selecting a trunk branch.
+	Short: "Initialize gs in the current repository",
+	Long: `Initialize gs in the current git repository by selecting a trunk branch.
 
 The trunk branch is the main branch that stacks are based on (typically 'main' or 'master').
 This command creates the necessary configuration files in .git/ directory.`,
@@ -35,7 +35,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	// Check if already initialized
 	configPath := repo.GetConfigPath()
 	if config.IsInitialized(configPath) {
-		return fmt.Errorf("gw is already initialized in this repository\nConfig file: %s", configPath)
+		return fmt.Errorf("gs is already initialized in this repository\nConfig file: %s", configPath)
 	}
 
 	// Get list of branches
@@ -45,7 +45,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(branches) == 0 {
-		return fmt.Errorf("no branches found in repository\nCreate at least one branch before running 'gw init'")
+		return fmt.Errorf("no branches found in repository\nCreate at least one branch before running 'gs init'")
 	}
 
 	// Prompt user to select trunk branch
@@ -102,11 +102,11 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 
-	fmt.Printf("✓ Initialized gw with trunk branch: %s\n", trunk)
+	fmt.Printf("✓ Initialized gs with trunk branch: %s\n", trunk)
 	fmt.Printf("  Config: %s\n", configPath)
 	fmt.Printf("  Metadata: %s\n", repo.GetMetadataPath())
-	fmt.Println("\nYou can now use 'gw track' to start tracking existing branches")
-	fmt.Println("or 'gw create' to create new branches in your stack")
+	fmt.Println("\nYou can now use 'gs track' to start tracking existing branches")
+	fmt.Println("or 'gs create' to create new branches in your stack")
 
 	return nil
 }

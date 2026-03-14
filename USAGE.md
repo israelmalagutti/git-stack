@@ -1,8 +1,8 @@
-# Git Wrapper (gw) - Usage Guide
+# Git Stack (gs) - Usage Guide
 
 ## Interactive Mode Commands
 
-Many `gw` commands use interactive prompts to help you select branches, enter names, or make decisions. Here are the keyboard shortcuts available in interactive mode:
+Many `gs` commands use interactive prompts to help you select branches, enter names, or make decisions. Here are the keyboard shortcuts available in interactive mode:
 
 ### Navigation & Selection
 - **Arrow Keys (↑/↓)** - Navigate up and down through options
@@ -27,69 +27,69 @@ Many `gw` commands use interactive prompts to help you select branches, enter na
 
 ### Initialization
 
-#### `gw init`
-Initialize git-wrapper in your repository. This sets up the configuration and identifies your trunk branch (usually `main` or `master`).
+#### `gs init`
+Initialize git-stack in your repository. This sets up the configuration and identifies your trunk branch (usually `main` or `master`).
 
 ```bash
-gw init
+gs init
 ```
 
 ### Branch Management
 
-#### `gw create [name]`
+#### `gs create [name]`
 Create a new branch stacked on top of the current branch. The new branch is automatically tracked with the current branch as its parent.
 
 ```bash
 # Interactive mode - prompts for branch name
-gw create
+gs create
 
 # Direct mode - specify branch name
-gw create feat-auth
+gs create feat-auth
 ```
 
 If you have staged changes, you'll be prompted to commit them to the new branch.
 
-#### `gw track`
+#### `gs track`
 Start tracking an existing branch. You'll be prompted to select a parent branch from your stack.
 
 ```bash
-gw track
+gs track
 ```
 
-#### `gw checkout [options]`
+#### `gs checkout [options]`
 Smart branch checkout with interactive selection. Shows stack context for each branch.
 
 ```bash
 # Interactive mode - select from list of branches
-gw co
+gs co
 
 # Quick checkout to trunk
-gw co -t
-gw co --trunk
+gs co -t
+gs co --trunk
 
 # Show untracked branches in selection
-gw co -u
-gw co --show-untracked
+gs co -u
+gs co --show-untracked
 
 # Only show branches in current stack
-gw co -s
-gw co --stack
+gs co -s
+gs co --stack
 ```
 
 **Aliases:** `co`, `checkout`, `switch`
 
 ### Visualization
 
-#### `gw log [options]`
+#### `gs log [options]`
 Display a visual tree representation of your branch stack.
 
 ```bash
 # Compact view
-gw log
-gw log --short
+gs log
+gs log --short
 
 # Detailed view with commit messages
-gw log --long
+gs log --long
 ```
 
 Output format:
@@ -105,40 +105,40 @@ Legend:
 - `*` - Indicator for current branch name
 - `[hash]` - Commit SHA
 
-#### `gw info`
+#### `gs info`
 Show detailed information about the current branch, including parent, children, depth in stack, and path to trunk.
 
 ```bash
-gw info
+gs info
 ```
 
-#### `gw parent`
+#### `gs parent`
 Show the parent branch of the current branch.
 
 ```bash
-gw parent
+gs parent
 ```
 
-#### `gw children`
+#### `gs children`
 Show all child branches of the current branch.
 
 ```bash
-gw children
+gs children
 ```
 
 ### Stack Maintenance
 
-#### `gw stack restack`
+#### `gs stack restack`
 Ensure each branch in the current stack is based on its parent, rebasing if necessary. This command recursively restacks all children branches.
 
 ```bash
 # Restack current branch and all its children
-gw stack restack
+gs stack restack
 
 # Short aliases
-gw stack r
-gw stack fix
-gw stack f
+gs stack r
+gs stack fix
+gs stack f
 ```
 
 **What it does:**
@@ -154,15 +154,15 @@ gw stack f
 
 **Aliases:** `r`, `fix`, `f`
 
-#### `gw sync`
+#### `gs sync`
 Clean up metadata and validate stack structure.
 
 ```bash
 # Interactive cleanup
-gw sync
+gs sync
 
 # Force cleanup without prompts
-gw sync -f
+gs sync -f
 ```
 
 **What it does:**
@@ -171,27 +171,27 @@ gw sync -f
 - Detects cycles in branch relationships
 - Ensures stack structure is valid
 
-#### `gw modify`
+#### `gs modify`
 Modify the current branch by amending its commit or creating a new commit. Automatically restacks descendants.
 
 ```bash
 # Amend current commit
-gw modify
+gs modify
 
 # Amend with message
-gw modify -m "Updated commit message"
+gs modify -m "Updated commit message"
 
 # Stage all changes and amend
-gw modify -a
+gs modify -a
 
 # Stage interactively and amend
-gw modify -p
+gs modify -p
 
 # Create new commit instead of amending
-gw modify -c -m "New commit message"
+gs modify -c -m "New commit message"
 
 # Short alias
-gw m -a
+gs m -a
 ```
 
 **What it does:**
@@ -216,21 +216,21 @@ gw m -a
 
 ### Advanced Stack Operations
 
-#### `gw move [target]`
+#### `gs move [target]`
 Rebase the current branch onto a different parent branch. Automatically restacks all descendants.
 
 ```bash
 # Interactive selection of target branch
-gw move
+gs move
 
 # Move current branch onto feat-base
-gw move feat-base
+gs move feat-base
 
 # Using --onto flag
-gw move -o feat-base
+gs move -o feat-base
 
 # Short alias
-gw mv feat-base
+gs mv feat-base
 ```
 
 **What it does:**
@@ -251,19 +251,19 @@ gw mv feat-base
 
 **Alias:** `mv`
 
-#### `gw fold`
+#### `gs fold`
 Fold the current branch's changes into its parent branch. This merges the current branch into its parent and deletes it (unless --keep is used).
 
 ```bash
 # Fold current branch into parent
-gw fold
+gs fold
 
 # Keep current branch instead of deleting it
-gw fold --keep
+gs fold --keep
 
 # Skip confirmation prompt
-gw fold --force
-gw fold -f
+gs fold --force
+gs fold -f
 ```
 
 **What it does:**
@@ -283,27 +283,27 @@ gw fold -f
 - Cleaning up unnecessary branches after code review changes
 - Combining multiple small changes into a single branch
 
-#### `gw delete [branch]`
+#### `gs delete [branch]`
 Delete a branch and its metadata from the stack. Children will be restacked onto the parent.
 
 ```bash
 # Interactive selection of branch to delete
-gw delete
+gs delete
 
 # Delete specific branch
-gw delete feat-old
+gs delete feat-old
 
 # Delete without confirmation
-gw delete -f feat-old
+gs delete -f feat-old
 
 # Short aliases
-gw d feat-old
-gw rm feat-old
+gs d feat-old
+gs rm feat-old
 ```
 
 **What it does:**
 - Deletes the specified branch (or current branch if none specified)
-- Removes the branch from gw metadata
+- Removes the branch from gs metadata
 - Updates children to point to the deleted branch's parent
 - Restacks all descendants
 - Prompts for confirmation before proceeding
@@ -328,35 +328,35 @@ gw rm feat-old
 git checkout main
 
 # Create first feature branch
-gw create feat-database
+gs create feat-database
 # ... make changes, commit ...
 
 # Create second feature stacked on first
-gw create feat-api
+gs create feat-api
 # ... make changes, commit ...
 
 # Create third feature stacked on second
-gw create feat-ui
+gs create feat-ui
 # ... make changes, commit ...
 
 # View your stack
-gw log
+gs log
 ```
 
 ### Navigating Your Stack
 
 ```bash
 # View the stack
-gw log
+gs log
 
 # Quickly jump to trunk
-gw co -t
+gs co -t
 
 # Interactively select a branch to checkout
-gw co
+gs co
 
 # Only see branches in current stack
-gw co -s
+gs co -s
 ```
 
 ### Tracking Existing Branches
@@ -365,18 +365,18 @@ gw co -s
 # Checkout an existing branch
 git checkout feat-existing
 
-# Track it in gw
-gw track
+# Track it in gs
+gs track
 # Select parent branch when prompted
 
 # Verify it's tracked
-gw info
+gs info
 ```
 
 ## Tips
 
 1. **Use vim mode** for faster navigation if you're comfortable with j/k keys. Press ESC to toggle.
 2. **Type to filter** in Select prompts to quickly find branches in large stacks.
-3. **Use `gw co -t`** as a quick way to return to trunk from anywhere.
+3. **Use `gs co -t`** as a quick way to return to trunk from anywhere.
 4. **Press Ctrl+C** anytime to safely cancel an operation.
-5. **Check `gw log`** frequently to visualize your stack structure.
+5. **Check `gs log`** frequently to visualize your stack structure.

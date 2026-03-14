@@ -6,9 +6,9 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/israelmalagutti/git-wrapper/internal/colors"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/colors"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/spf13/cobra"
 )
 
@@ -18,16 +18,16 @@ var (
 
 var untrackCmd = &cobra.Command{
 	Use:   "untrack [branch]",
-	Short: "Stop tracking a branch with gw",
-	Long: `Stop tracking a branch with gw.
+	Short: "Stop tracking a branch with gs",
+	Long: `Stop tracking a branch with gs.
 
 If no branch is specified, the current branch will be untracked.
 Children branches will be reparented to this branch's parent.
 
 Example:
-  gw untrack              # Untrack current branch
-  gw untrack feature-1    # Untrack specific branch
-  gw untrack -f           # Force untrack without confirmation`,
+  gs untrack              # Untrack current branch
+  gs untrack feature-1    # Untrack specific branch
+  gs untrack -f           # Force untrack without confirmation`,
 	RunE: runUntrack,
 }
 
@@ -43,7 +43,7 @@ func runUntrack(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize repository: %w", err)
 	}
 
-	// Check if gw is initialized
+	// Check if gs is initialized
 	cfg, err := config.Load(repo.GetConfigPath())
 	if err != nil {
 		return err
@@ -75,7 +75,7 @@ func runUntrack(cmd *cobra.Command, args []string) error {
 
 	// Check if branch is tracked
 	if !metadata.IsTracked(branchToUntrack) {
-		fmt.Printf("%s is not tracked by gw\n", colors.BranchCurrent(branchToUntrack))
+		fmt.Printf("%s is not tracked by gs\n", colors.BranchCurrent(branchToUntrack))
 		return nil
 	}
 

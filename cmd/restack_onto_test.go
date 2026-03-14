@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/israelmalagutti/git-wrapper/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/config"
 )
 
 func TestRestackUsesOntoWhenParentRevisionSet(t *testing.T) {

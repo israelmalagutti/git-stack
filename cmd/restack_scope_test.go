@@ -3,8 +3,8 @@ package cmd
 import (
 	"testing"
 
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 )
 
 // resetRestackFlags resets all scope flags to their defaults before each test

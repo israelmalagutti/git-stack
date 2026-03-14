@@ -8,7 +8,7 @@ import (
 
 func TestConfig(t *testing.T) {
 	// Create temp directory
-	tmpDir, err := os.MkdirTemp("", "gw-test-*")
+	tmpDir, err := os.MkdirTemp("", "gs-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestConfig(t *testing.T) {
 
 func TestMetadata(t *testing.T) {
 	// Create temp directory
-	tmpDir, err := os.MkdirTemp("", "gw-test-*")
+	tmpDir, err := os.MkdirTemp("", "gs-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}

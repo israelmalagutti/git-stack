@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/israelmalagutti/git-wrapper/internal/colors"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/colors"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -19,8 +19,8 @@ var downCmd = &cobra.Command{
 Default is 1 step. Specify a number to move multiple steps.
 
 Example:
-  gw down      # Move to parent branch
-  gw down 2    # Move 2 levels toward trunk`,
+  gs down      # Move to parent branch
+  gs down 2    # Move 2 levels toward trunk`,
 	Aliases: []string{"dn"},
 	Args:    cobra.MaximumNArgs(1),
 	RunE:    runDown,

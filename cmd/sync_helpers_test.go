@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 )
 
 func TestDeleteBranchAndCleanup(t *testing.T) {

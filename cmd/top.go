@@ -6,9 +6,9 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +20,7 @@ var topCmd = &cobra.Command{
 If multiple leaf branches exist, prompts for selection.
 
 Example:
-  gw top    # Jump to top of stack`,
+  gs top    # Jump to top of stack`,
 	Aliases: []string{"t"},
 	Args:    cobra.NoArgs,
 	RunE:    runTop,

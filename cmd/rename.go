@@ -6,23 +6,23 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/israelmalagutti/git-wrapper/internal/colors"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/colors"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/spf13/cobra"
 )
 
 var renameCmd = &cobra.Command{
 	Use:   "rename [new-name]",
 	Short: "Rename the current branch",
-	Long: `Rename the current branch and update gw tracking.
+	Long: `Rename the current branch and update gs tracking.
 
 If no new name is provided, you'll be prompted to enter one.
-This updates both the git branch name and gw metadata.
+This updates both the git branch name and gs metadata.
 
 Example:
-  gw rename feat-new-name    # Rename current branch
-  gw rename                  # Prompt for new name`,
+  gs rename feat-new-name    # Rename current branch
+  gs rename                  # Prompt for new name`,
 	RunE: runRename,
 }
 
@@ -37,7 +37,7 @@ func runRename(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize repository: %w", err)
 	}
 
-	// Check if gw is initialized
+	// Check if gs is initialized
 	cfg, err := config.Load(repo.GetConfigPath())
 	if err != nil {
 		return err

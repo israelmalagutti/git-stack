@@ -3,10 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/israelmalagutti/git-wrapper/internal/colors"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/colors"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +26,7 @@ var stackRestackCmd = &cobra.Command{
 This command:
 - Checks if branches need rebasing onto their parents
 - Performs rebases using precise --onto when parent revision is known
-- Saves state for gw continue if a conflict occurs
+- Saves state for gs continue if a conflict occurs
 
 Scope flags (mutually exclusive):
   --only        Restack only the current branch
@@ -37,11 +37,11 @@ Scope flags (mutually exclusive):
 Default (no flags): restack the full stack (ancestors + current + descendants).
 
 Example:
-  gw stack restack              # Restack full stack
-  gw stack restack --only       # Restack only current branch
-  gw stack restack --upstack    # Restack current + descendants
-  gw stack restack --downstack  # Restack ancestors + current
-  gw stack restack --branch X   # Restack starting from branch X`,
+  gs stack restack              # Restack full stack
+  gs stack restack --only       # Restack only current branch
+  gs stack restack --upstack    # Restack current + descendants
+  gs stack restack --downstack  # Restack ancestors + current
+  gs stack restack --branch X   # Restack starting from branch X`,
 	RunE: runStackRestack,
 }
 
@@ -120,7 +120,7 @@ func runStackRestack(cmd *cobra.Command, args []string) error {
 
 	// Validate that the branch is in the stack
 	if startBranch != cfg.Trunk && s.GetNode(startBranch) == nil {
-		return fmt.Errorf("branch '%s' is not tracked by gw", startBranch)
+		return fmt.Errorf("branch '%s' is not tracked by gs", startBranch)
 	}
 
 	// Compute branches to restack
@@ -215,7 +215,7 @@ func descendantsDFS(s *stack.Stack, branch string) []string {
 }
 
 // runLinearRestack iterates through branches, rebasing each one.
-// On conflict, saves state for gw continue.
+// On conflict, saves state for gs continue.
 func runLinearRestack(repo *git.Repo, metadata *config.Metadata, s *stack.Stack, branches []string, originalBranch string) error {
 	for i, branch := range branches {
 		node := s.GetNode(branch)
@@ -245,7 +245,7 @@ func runLinearRestack(repo *git.Repo, metadata *config.Metadata, s *stack.Stack,
 		// Perform rebase (precise --onto or fallback)
 		rebaseErr := restackBranchOnto(repo, metadata, branch, parent)
 		if rebaseErr != nil {
-			// Save remaining branches for gw continue
+			// Save remaining branches for gs continue
 			remaining := branches[i:]
 			state := &config.ContinueState{
 				RemainingBranches: remaining,
@@ -264,7 +264,7 @@ func runLinearRestack(repo *git.Repo, metadata *config.Metadata, s *stack.Stack,
 			fmt.Println(colors.Muted("To continue:"))
 			fmt.Println(colors.Muted("  1. Resolve conflicts"))
 			fmt.Println(colors.Muted("  2. git add ."))
-			fmt.Println(colors.Muted("  3. gw continue"))
+			fmt.Println(colors.Muted("  3. gs continue"))
 			fmt.Println()
 			fmt.Println(colors.Muted("To abort: git rebase --abort"))
 			return fmt.Errorf("rebase conflict")
@@ -326,7 +326,7 @@ func restackBranch(repo *git.Repo, branch, parent string) error {
 		fmt.Println("  (1) resolve the merge conflicts")
 		fmt.Println("  (2) stage changes with: git add .")
 		fmt.Println("  (3) continue rebase: git rebase --continue")
-		fmt.Println("  (4) restack remaining: gw stack restack")
+		fmt.Println("  (4) restack remaining: gs stack restack")
 		fmt.Println("\nTo abort: git rebase --abort")
 		return fmt.Errorf("rebase conflict")
 	}

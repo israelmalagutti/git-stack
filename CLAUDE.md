@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-`gw` (git-wrapper) is a CLI tool for managing stacked branches in git, inspired by Graphite's `gt`.
+`gs` (git-stack) is a CLI tool for managing stacked branches in git, inspired by Graphite's `gt`.
 
 ## Key Documentation
 
-- `docs/visualization-decisions.md` — Every major design decision and rationale behind `gw log` visualization. Read this before modifying the tree rendering code.
+- `docs/visualization-decisions.md` — Every major design decision and rationale behind `gs log` visualization. Read this before modifying the tree rendering code.
 
 ## Architecture
 
@@ -19,7 +19,7 @@
 ## Build & Test
 
 - Language: Go
-- Build: `go build -o gw .`
+- Build: `go build -o gs .`
 - Test: `go test ./...`
 - Lint: handled by CI (golangci-lint)
 

@@ -10,7 +10,7 @@ var restackCmd = &cobra.Command{
 	Short:   "Restack current branch and its children",
 	Long: `Rebase branches to maintain parent-child relationships.
 
-This is an alias for 'gw stack restack'.
+This is an alias for 'gs stack restack'.
 
 Scope flags (mutually exclusive):
   --only        Restack only the current branch
@@ -21,10 +21,10 @@ Scope flags (mutually exclusive):
 Default (no flags): restack the full stack.
 
 Example:
-  gw restack              # Restack full stack
-  gw restack --only       # Restack only current branch
-  gw restack --upstack    # Restack current + descendants
-  gw rs                   # Short alias`,
+  gs restack              # Restack full stack
+  gs restack --only       # Restack only current branch
+  gs restack --upstack    # Restack current + descendants
+  gs rs                   # Short alias`,
 	RunE: runStackRestack,
 }
 

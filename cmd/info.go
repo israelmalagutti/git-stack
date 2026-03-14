@@ -3,9 +3,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -75,8 +75,8 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	node := s.GetNode(branchName)
 	if node == nil {
 		fmt.Printf("Branch: %s\n", branchName)
-		fmt.Println("Status: Not tracked by gw")
-		fmt.Printf("\nRun 'gw track %s' to start tracking this branch\n", branchName)
+		fmt.Println("Status: Not tracked by gs")
+		fmt.Printf("\nRun 'gs track %s' to start tracking this branch\n", branchName)
 		return nil
 	}
 

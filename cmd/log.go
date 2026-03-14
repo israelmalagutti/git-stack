@@ -3,9 +3,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -23,9 +23,9 @@ Shows branches as a tree starting from the trunk branch, with
 the current branch highlighted.
 
 Modes:
-  gw log         - Standard tree view (*branch = current)
-  gw log --short - Compact indented view (● = current, ○ = other)
-  gw log --long  - Detailed view with commit messages`,
+  gs log         - Standard tree view (*branch = current)
+  gs log --short - Compact indented view (● = current, ○ = other)
+  gs log --long  - Detailed view with commit messages`,
 	RunE: runLog,
 }
 

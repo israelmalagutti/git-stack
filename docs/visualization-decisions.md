@@ -1,6 +1,6 @@
-# Visualization Design Decisions (`gw log`)
+# Visualization Design Decisions (`gs log`)
 
-This document captures every major design decision behind the `gw log` visualization
+This document captures every major design decision behind the `gs log` visualization
 and the reasoning that drove each choice.
 
 ---

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -26,11 +26,11 @@ Automatically restacks descendants.
 If you have unstaged changes, you can stage them with --all or --patch.
 
 Example:
-  gw modify              # Amend current commit
-  gw modify -c           # Create new commit
-  gw modify -a           # Stage all changes and amend
-  gw modify -m "msg"     # Amend with message
-  gw modify -c -m "msg"  # Create new commit with message`,
+  gs modify              # Amend current commit
+  gs modify -c           # Create new commit
+  gs modify -a           # Stage all changes and amend
+  gs modify -m "msg"     # Amend with message
+  gs modify -c -m "msg"  # Create new commit with message`,
 	Aliases: []string{"m"},
 	RunE:    runModify,
 }
@@ -71,7 +71,7 @@ func runModify(cmd *cobra.Command, args []string) error {
 	// Check if current branch is tracked (trunk is allowed)
 	isTrunk := currentBranch == cfg.Trunk
 	if !isTrunk && !metadata.IsTracked(currentBranch) {
-		return fmt.Errorf("branch '%s' is not tracked by gw", currentBranch)
+		return fmt.Errorf("branch '%s' is not tracked by gs", currentBranch)
 	}
 
 	// Check if branch has commits (skip for trunk)

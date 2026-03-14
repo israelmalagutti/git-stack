@@ -8,15 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `gw split` command with three modes: by-commit, by-hunk, by-file
-- `gw up` / `gw down` commands for stack navigation
-- `gw top` / `gw bottom` commands to jump to stack ends
-- `gw move` command with `--source` and `--target` flags
-- `gw fold` command to fold branch into parent
-- `gw delete` command to delete branches from stack
-- `gw modify` command for amending commits
-- `gw stack restack` command for rebasing stacks
-- `gw sync` command with cycle detection
+- `gs split` command with three modes: by-commit, by-hunk, by-file
+- `gs up` / `gs down` commands for stack navigation
+- `gs top` / `gs bottom` commands to jump to stack ends
+- `gs move` command with `--source` and `--target` flags
+- `gs fold` command to fold branch into parent
+- `gs delete` command to delete branches from stack
+- `gs modify` command for amending commits
+- `gs stack restack` command for rebasing stacks
+- `gs sync` command with cycle detection
 - Informative restack messaging with progress indicators
 - Version injection from git tags
 - Cross-platform builds (Linux, macOS, Windows)
@@ -34,12 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - Initial Release
 
 ### Added
-- `gw init` - Initialize gw in a repository
-- `gw create` - Create stacked branches
-- `gw track` - Track existing branches
-- `gw checkout` - Smart branch switching with aliases
-- `gw log` - Visualize stack structure
-- `gw info` - Show branch details
-- `gw parent` / `gw children` - Show relationships
+- `gs init` - Initialize gs in a repository
+- `gs create` - Create stacked branches
+- `gs track` - Track existing branches
+- `gs checkout` - Smart branch switching with aliases
+- `gs log` - Visualize stack structure
+- `gs info` - Show branch details
+- `gs parent` / `gs children` - Show relationships
 - Configuration and metadata storage
 - Interactive prompts with survey library

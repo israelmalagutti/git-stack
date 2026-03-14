@@ -7,10 +7,10 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/israelmalagutti/git-wrapper/internal/colors"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/colors"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -23,8 +23,8 @@ Default is 1 step. Specify a number to move multiple steps.
 If multiple children exist, prompts for selection.
 
 Example:
-  gw up      # Move to child branch
-  gw up 2    # Move 2 levels toward leaves`,
+  gs up      # Move to child branch
+  gs up 2    # Move 2 levels toward leaves`,
 	Aliases: []string{"u"},
 	Args:    cobra.MaximumNArgs(1),
 	RunE:    runUp,

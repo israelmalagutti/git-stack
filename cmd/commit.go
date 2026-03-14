@@ -6,9 +6,9 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/israelmalagutti/git-wrapper/internal/colors"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/colors"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/spf13/cobra"
 )
 
@@ -26,10 +26,10 @@ var commitCmd = &cobra.Command{
 Similar to git commit but with interactive prompts for staging changes.
 
 Examples:
-  gw commit -m "Add feature"     # Commit staged changes
-  gw commit -am "Add feature"    # Stage all and commit
-  gw commit -pm "Add feature"    # Interactive patch mode
-  gw commit                      # Interactive mode`,
+  gs commit -m "Add feature"     # Commit staged changes
+  gs commit -am "Add feature"    # Stage all and commit
+  gs commit -pm "Add feature"    # Interactive patch mode
+  gs commit                      # Interactive mode`,
 	Aliases: []string{"ci"},
 	RunE:    runCommit,
 }
@@ -48,7 +48,7 @@ func runCommit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize repository: %w", err)
 	}
 
-	// Check if gw is initialized
+	// Check if gs is initialized
 	if _, err := config.Load(repo.GetConfigPath()); err != nil {
 		return err
 	}

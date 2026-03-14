@@ -7,10 +7,10 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/israelmalagutti/git-wrapper/internal/colors"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/colors"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -30,12 +30,12 @@ If no branch is specified, opens an interactive selector showing
 all branches with their stack context.
 
 Example:
-  gw checkout feat-1       # Switch to feat-1
-  gw co feat-2             # Switch to feat-2 (alias)
-  gw checkout              # Interactive branch selector (tracked only)
-  gw checkout -t           # Switch to trunk
-  gw checkout -s           # Interactive selector (current stack only)
-  gw co -u                 # Show untracked branches in selector`,
+  gs checkout feat-1       # Switch to feat-1
+  gs co feat-2             # Switch to feat-2 (alias)
+  gs checkout              # Interactive branch selector (tracked only)
+  gs checkout -t           # Switch to trunk
+  gs checkout -s           # Interactive selector (current stack only)
+  gs co -u                 # Show untracked branches in selector`,
 	RunE: runCheckout,
 }
 
@@ -241,7 +241,7 @@ func checkoutBranch(repo *git.Repo, s *stack.Stack, targetBranch string) error {
 			fmt.Println()
 		}
 	} else {
-		fmt.Println(colors.Muted("This branch is not tracked by gw"))
+		fmt.Println(colors.Muted("This branch is not tracked by gs"))
 	}
 
 	return nil

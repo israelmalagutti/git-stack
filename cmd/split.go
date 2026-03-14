@@ -8,9 +8,9 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -34,10 +34,10 @@ Three splitting methods available:
 The new branch becomes the parent, and the current branch is rebased on top.
 
 Example:
-  gw split -c                    # Split by selecting commits
-  gw split -u                    # Interactive hunk selection
-  gw split -f "*.json"           # Split JSON files to parent
-  gw split -f "src/**" -n base   # Split src/ to branch named 'base'`,
+  gs split -c                    # Split by selecting commits
+  gs split -u                    # Interactive hunk selection
+  gs split -f "*.json"           # Split JSON files to parent
+  gs split -f "src/**" -n base   # Split src/ to branch named 'base'`,
 	RunE: runSplit,
 }
 
@@ -81,7 +81,7 @@ func runSplit(cmd *cobra.Command, args []string) error {
 
 	// Must be tracked
 	if !metadata.IsTracked(currentBranch) {
-		return fmt.Errorf("branch '%s' is not tracked by gw", currentBranch)
+		return fmt.Errorf("branch '%s' is not tracked by gs", currentBranch)
 	}
 
 	// Get parent branch
@@ -281,7 +281,7 @@ func splitByCommitMode(repo *git.Repo, cfg *config.Config, metadata *config.Meta
 	// Rebase current branch onto new branch
 	fmt.Printf("Rebasing '%s' onto '%s'...\n", currentBranch, newBranchName)
 	if _, err := repo.RunGitCommand("rebase", "--onto", newBranchName, splitSHA, currentBranch); err != nil {
-		return fmt.Errorf("rebase failed: %w\nResolve conflicts and run: gw stack restack", err)
+		return fmt.Errorf("rebase failed: %w\nResolve conflicts and run: gs stack restack", err)
 	}
 
 	fmt.Printf("\n✓ Created '%s' with %d commit(s)\n", newBranchName, len(selected))
@@ -387,7 +387,7 @@ func splitByHunkMode(repo *git.Repo, cfg *config.Config, metadata *config.Metada
 	// Rebase current branch onto new branch
 	fmt.Printf("\nRebasing '%s' onto '%s'...\n", currentBranch, newBranchName)
 	if _, err := repo.RunGitCommand("rebase", newBranchName); err != nil {
-		return fmt.Errorf("rebase failed: %w\nResolve conflicts and run: gw stack restack", err)
+		return fmt.Errorf("rebase failed: %w\nResolve conflicts and run: gs stack restack", err)
 	}
 
 	// Build stack to restack children
@@ -502,7 +502,7 @@ func splitByFileMode(repo *git.Repo, cfg *config.Config, metadata *config.Metada
 	// Rebase onto new branch
 	fmt.Printf("\nRebasing '%s' onto '%s'...\n", currentBranch, newBranchName)
 	if _, err := repo.RunGitCommand("rebase", newBranchName); err != nil {
-		return fmt.Errorf("rebase failed: %w\nResolve conflicts and run: gw stack restack", err)
+		return fmt.Errorf("rebase failed: %w\nResolve conflicts and run: gs stack restack", err)
 	}
 
 	// Restack children

@@ -6,23 +6,23 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/israelmalagutti/git-wrapper/internal/colors"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/colors"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/spf13/cobra"
 )
 
 var trackCmd = &cobra.Command{
 	Use:   "track [branch]",
-	Short: "Start tracking a branch with gw",
-	Long: `Start tracking an existing branch with gw by selecting its parent branch.
+	Short: "Start tracking a branch with gs",
+	Long: `Start tracking an existing branch with gs by selecting its parent branch.
 
 If no branch is specified, the current branch will be tracked.
 You'll be prompted to select which branch is the parent of this branch.
 
 Example:
-  gw track              # Track current branch
-  gw track feature-1    # Track specific branch`,
+  gs track              # Track current branch
+  gs track feature-1    # Track specific branch`,
 	RunE: runTrack,
 }
 
@@ -37,7 +37,7 @@ func runTrack(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize repository: %w", err)
 	}
 
-	// Check if gw is initialized
+	// Check if gs is initialized
 	cfg, err := config.Load(repo.GetConfigPath())
 	if err != nil {
 		return err

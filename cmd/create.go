@@ -7,9 +7,9 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/israelmalagutti/git-wrapper/internal/colors"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/colors"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/spf13/cobra"
 )
 
@@ -27,11 +27,11 @@ var createCmd = &cobra.Command{
 The new branch will be automatically tracked with the current branch as its parent.
 
 Examples:
-  gw create feat-auth                    # Create empty branch
-  gw create feat-auth -m "Add login"     # Create and commit staged changes
-  gw create feat-auth -am "Add login"    # Stage all changes and commit
-  gw create feat-auth -pm "Add login"    # Interactive patch mode
-  gw create -m "Add login"               # Auto-generate branch name from message`,
+  gs create feat-auth                    # Create empty branch
+  gs create feat-auth -m "Add login"     # Create and commit staged changes
+  gs create feat-auth -am "Add login"    # Stage all changes and commit
+  gs create feat-auth -pm "Add login"    # Interactive patch mode
+  gs create -m "Add login"               # Auto-generate branch name from message`,
 	Aliases: []string{"c"},
 	RunE:    runCreate,
 }
@@ -50,7 +50,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize repository: %w", err)
 	}
 
-	// Check if gw is initialized
+	// Check if gs is initialized
 	_, err = config.Load(repo.GetConfigPath())
 	if err != nil {
 		return err
@@ -280,8 +280,8 @@ func runCreate(cmd *cobra.Command, args []string) error {
 			fmt.Println()
 			fmt.Println(colors.Muted("Next steps:"))
 			fmt.Println(colors.Muted("  Make your changes, then:"))
-			fmt.Println(colors.Muted("  - gw modify -m \"message\"  to commit"))
-			fmt.Println(colors.Muted("  - gw log                   to see your stack"))
+			fmt.Println(colors.Muted("  - gs modify -m \"message\"  to commit"))
+			fmt.Println(colors.Muted("  - gs log                   to see your stack"))
 		}
 	}
 

@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -30,9 +30,9 @@ This command:
 4. Restacks all branches that can be rebased without conflicts
 
 Example:
-  gw sync              # Full sync with prompts
-  gw sync -f           # Force sync without prompts
-  gw sync --no-restack # Sync without restacking branches`,
+  gs sync              # Full sync with prompts
+  gs sync -f           # Force sync without prompts
+  gs sync --no-restack # Sync without restacking branches`,
 	RunE: runSync,
 }
 
@@ -124,7 +124,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 			for _, branch := range failed {
 				fmt.Printf("    %s\n", branch)
 			}
-			fmt.Println("\nRun 'gw restack' on each branch to resolve conflicts.")
+			fmt.Println("\nRun 'gs restack' on each branch to resolve conflicts.")
 		}
 
 		if len(succeeded) == 0 && len(failed) == 0 {

@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// GetContinueStatePath returns the path to gw continue state file
+// GetContinueStatePath returns the path to gs continue state file
 func (r *Repo) GetContinueStatePath() string {
 	return filepath.Join(r.commonDir, ".gw_continue_state")
 }
@@ -74,12 +74,12 @@ func (r *Repo) GetWorkDir() string {
 	return r.workDir
 }
 
-// GetConfigPath returns the path to gw config file
+// GetConfigPath returns the path to gs config file
 func (r *Repo) GetConfigPath() string {
 	return filepath.Join(r.commonDir, ".gw_config")
 }
 
-// GetMetadataPath returns the path to gw metadata file
+// GetMetadataPath returns the path to gs metadata file
 func (r *Repo) GetMetadataPath() string {
 	return filepath.Join(r.commonDir, ".gw_stack_metadata")
 }

@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/israelmalagutti/git-wrapper/internal/colors"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/colors"
+	"github.com/israelmalagutti/git-stack/internal/git"
 )
 
 // TreeOptions controls how the tree is rendered

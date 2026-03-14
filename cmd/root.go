@@ -15,9 +15,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "gw",
-	Short: "gw - blazing fast git stack management",
-	Long: `gw (git-wrapper) is a fast, simple git stack management tool.
+	Use:   "gs",
+	Short: "gs - blazing fast git stack management",
+	Long: `gs (git-stack) is a fast, simple git stack management tool.
 
 It helps you work with stacked diffs (stacked PRs) efficiently,
 maintaining parent-child relationships between branches.`,
@@ -36,11 +36,11 @@ func Execute() {
 
 func init() {
 	// Override default version template to show more info
-	rootCmd.SetVersionTemplate(`gw version {{.Version}}
+	rootCmd.SetVersionTemplate(`gs version {{.Version}}
 `)
 }
 
 // GetVersionInfo returns detailed version information
 func GetVersionInfo() string {
-	return fmt.Sprintf("gw version %s\ncommit: %s\nbuilt: %s", Version, Commit, BuildDate)
+	return fmt.Sprintf("gs version %s\ncommit: %s\nbuilt: %s", Version, Commit, BuildDate)
 }

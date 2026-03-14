@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/israelmalagutti/git-wrapper/internal/colors"
+	"github.com/israelmalagutti/git-stack/internal/colors"
 )
 
 func init() {

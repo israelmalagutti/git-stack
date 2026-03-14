@@ -1,4 +1,4 @@
-# gw - Git Wrapper
+# gs - Git Stack
 
 A fast, simple git stack management CLI tool for working with stacked diffs (stacked PRs).
 
@@ -15,53 +15,53 @@ A fast, simple git stack management CLI tool for working with stacked diffs (sta
 ### From Release (Recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/israelmalagutti/git-wrapper/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/israelmalagutti/git-stack/main/scripts/install.sh | bash
 ```
 
 Or specify a version:
 
 ```bash
-GW_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/israelmalagutti/git-wrapper/main/scripts/install.sh | bash
+GS_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/israelmalagutti/git-stack/main/scripts/install.sh | bash
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/israelmalagutti/git-wrapper.git
-cd git-wrapper
+git clone https://github.com/israelmalagutti/git-stack.git
+cd git-stack
 make install
 ```
 
 ### Manual Download
 
-Download the appropriate binary from the [releases page](https://github.com/israelmalagutti/git-wrapper/releases) and add it to your PATH.
+Download the appropriate binary from the [releases page](https://github.com/israelmalagutti/git-stack/releases) and add it to your PATH.
 
 ## Quick Start
 
 ```bash
-# Initialize gw in your repository
-gw init
+# Initialize gs in your repository
+gs init
 
 # Create a new stacked branch
-gw create feat-auth
+gs create feat-auth
 
 # Make changes and commit
 git add . && git commit -m "Add authentication"
 
 # Create another branch on top
-gw create feat-auth-ui
+gs create feat-auth-ui
 
 # View the stack
-gw log
+gs log
 
 # Navigate the stack
-gw up          # Move to child branch
-gw down        # Move to parent branch
-gw top         # Jump to top of stack
-gw bottom      # Jump to trunk
+gs up          # Move to child branch
+gs down        # Move to parent branch
+gs top         # Jump to top of stack
+gs bottom      # Jump to trunk
 
 # Restack after parent changes
-gw stack restack
+gs stack restack
 ```
 
 ## Commands
@@ -70,43 +70,43 @@ gw stack restack
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `gw init` | | Initialize gw in a repository |
-| `gw create <name>` | | Create a new stacked branch |
-| `gw track [branch]` | | Track an existing branch |
-| `gw checkout <branch>` | `co`, `switch` | Switch to a branch |
-| `gw log` | | Visualize the stack structure |
-| `gw info` | | Show current branch details |
+| `gs init` | | Initialize gs in a repository |
+| `gs create <name>` | | Create a new stacked branch |
+| `gs track [branch]` | | Track an existing branch |
+| `gs checkout <branch>` | `co`, `switch` | Switch to a branch |
+| `gs log` | | Visualize the stack structure |
+| `gs info` | | Show current branch details |
 
 ### Navigation
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `gw up [n]` | `u` | Move up toward leaves |
-| `gw down [n]` | `dn` | Move down toward trunk |
-| `gw top` | `t` | Jump to top of stack |
-| `gw bottom` | `b` | Jump to trunk |
-| `gw parent` | | Show parent branch |
-| `gw children` | | Show child branches |
+| `gs up [n]` | `u` | Move up toward leaves |
+| `gs down [n]` | `dn` | Move down toward trunk |
+| `gs top` | `t` | Jump to top of stack |
+| `gs bottom` | `b` | Jump to trunk |
+| `gs parent` | | Show parent branch |
+| `gs children` | | Show child branches |
 
 ### Stack Operations
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `gw stack restack` | | Rebase stack to maintain relationships |
-| `gw modify` | `m` | Amend commit and restack children |
-| `gw move [target]` | `mv` | Move branch to different parent |
-| `gw fold` | | Fold current branch into parent |
-| `gw delete [branch]` | `rm` | Delete branch from stack |
-| `gw split` | | Split branch into multiple branches |
-| `gw sync` | | Sync metadata with git branches |
+| `gs stack restack` | | Rebase stack to maintain relationships |
+| `gs modify` | `m` | Amend commit and restack children |
+| `gs move [target]` | `mv` | Move branch to different parent |
+| `gs fold` | | Fold current branch into parent |
+| `gs delete [branch]` | `rm` | Delete branch from stack |
+| `gs split` | | Split branch into multiple branches |
+| `gs sync` | | Sync metadata with git branches |
 
 ### Split Modes
 
 ```bash
-gw split -c              # Split by selecting commits
-gw split -u              # Interactive hunk selection
-gw split -f "*.json"     # Split files matching pattern
-gw split -n base         # Specify new branch name
+gs split -c              # Split by selecting commits
+gs split -u              # Interactive hunk selection
+gs split -f "*.json"     # Split files matching pattern
+gs split -n base         # Specify new branch name
 ```
 
 ## Development
@@ -150,14 +150,14 @@ Version is injected at build time from git tags:
 
 ```bash
 # Shows commit hash if no tag
-gw --version
-# gw version a1b2c3d
+gs --version
+# gs version a1b2c3d
 
 # After tagging
 git tag v0.1.0
 make build
-gw --version
-# gw version v0.1.0
+gs --version
+# gs version v0.1.0
 ```
 
 ### Creating a Release
@@ -173,7 +173,7 @@ gw --version
 
 ## Configuration
 
-gw stores configuration in `.gw/config.json` at the repository root:
+gs stores configuration in `.gs/config.json` at the repository root:
 
 ```json
 {
@@ -182,7 +182,7 @@ gw stores configuration in `.gw/config.json` at the repository root:
 }
 ```
 
-Branch metadata is stored in `.gw/metadata.json`:
+Branch metadata is stored in `.gs/metadata.json`:
 
 ```json
 {

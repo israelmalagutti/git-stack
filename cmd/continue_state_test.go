@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/israelmalagutti/git-wrapper/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/config"
 )
 
 func TestContinueWithSavedState(t *testing.T) {
@@ -35,7 +35,7 @@ func TestContinueWithSavedState(t *testing.T) {
 	// Start a rebase that will conflict
 	if _, err := repo.repo.RunGitCommand("rebase", "main"); err != nil {
 		// Expected - no conflict in this case since files don't overlap
-		// Let's just create a saved state to test gw continue
+		// Let's just create a saved state to test gs continue
 		if _, abortErr := repo.repo.RunGitCommand("rebase", "--abort"); abortErr != nil {
 			// Already completed, fine
 		}

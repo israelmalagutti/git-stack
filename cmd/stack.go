@@ -17,8 +17,8 @@ Available commands:
   restack    Rebase stack to maintain parent-child relationships
 
 Example:
-  gw stack restack    # Rebase current stack
-  gw stack r          # Short alias for restack`,
+  gs stack restack    # Rebase current stack
+  gs stack r          # Short alias for restack`,
 }
 
 func init() {

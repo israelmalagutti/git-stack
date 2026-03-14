@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Setup a complex branch structure for testing gw log, gw checkout, etc.
-# Creates a git+gw repo in ./tmp/ with stacked branches and restack scenarios.
+# Setup a complex branch structure for testing gs log, gs checkout, etc.
+# Creates a git+gs repo in ./tmp/ with stacked branches and restack scenarios.
 #
 # Usage: ./scripts/setup-test-repo.sh
 #   Run from the project root. Creates ./tmp/ with the test repo.
@@ -35,8 +35,8 @@ commit() {
 commit "README.md" "# Test Project" "initial commit"
 commit "shared.txt" "line 1: original from main" "add shared.txt"
 
-# ─── Initialize gw ──────────────────────────────────────────────────────────
-# Create .gw_config and .gw_stack_metadata in .git/ (same as `gw init`)
+# ─── Initialize gs ──────────────────────────────────────────────────────────
+# Create .gw_config and .gw_stack_metadata in .git/ (same as `gs init`)
 cat > .git/.gw_config <<'GWCONFIG'
 {
   "version": "1.0.0",
@@ -46,7 +46,7 @@ cat > .git/.gw_config <<'GWCONFIG'
 GWCONFIG
 
 # We'll build the metadata JSON at the end after all branches exist.
-# For now, create an empty one so gw commands don't fail mid-script.
+# For now, create an empty one so gs commands don't fail mid-script.
 echo '{"branches":{}}' > .git/.gw_stack_metadata
 
 # ─── Level 1: three direct children of main ─────────────────────────────────
@@ -125,7 +125,7 @@ commit "shared.txt" "line 1: AMENDED by main (diverged)" \
 
 # Now TEST_1, TEST_2, TEST_3 are all behind main and need restacking.
 
-# ─── Write gw stack metadata (track all branches) ───────────────────────────
+# ─── Write gs stack metadata (track all branches) ───────────────────────────
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 cat > .git/.gw_stack_metadata <<EOF
@@ -182,4 +182,4 @@ echo "     → TEST_2_1, TEST_2_2, TEST_2_1_1, TEST_2_1_1_1 need restacking"
 echo "  2. main diverged from all level-1 branches (shared.txt changed)"
 echo "     → TEST_1, TEST_2, TEST_3 need restacking from trunk"
 echo ""
-echo "To test: cd $TARGET && gw log"
+echo "To test: cd $TARGET && gs log"

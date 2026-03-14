@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
-	"github.com/israelmalagutti/git-wrapper/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -29,8 +29,8 @@ This command:
 This is useful when you realize a branch should have been part of its parent.
 
 Example:
-  gw fold           # Fold into parent, delete current branch
-  gw fold --keep    # Fold into parent, keep current branch name`,
+  gs fold           # Fold into parent, delete current branch
+  gs fold --keep    # Fold into parent, keep current branch name`,
 	RunE: runFold,
 }
 
@@ -72,7 +72,7 @@ func runFold(cmd *cobra.Command, args []string) error {
 
 	// Check if current branch is tracked
 	if !metadata.IsTracked(currentBranch) {
-		return fmt.Errorf("branch '%s' is not tracked by gw", currentBranch)
+		return fmt.Errorf("branch '%s' is not tracked by gs", currentBranch)
 	}
 
 	// Get parent branch

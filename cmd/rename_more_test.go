@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/israelmalagutti/git-wrapper/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/config"
 )
 
 func TestRunRenameTrunkAndCancel(t *testing.T) {

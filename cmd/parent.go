@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/spf13/cobra"
 )
 
@@ -59,7 +59,7 @@ func runParent(cmd *cobra.Command, args []string) error {
 
 	// Check if branch is tracked
 	if !metadata.IsTracked(branchName) {
-		return fmt.Errorf("branch '%s' is not tracked by gw", branchName)
+		return fmt.Errorf("branch '%s' is not tracked by gs", branchName)
 	}
 
 	// Get parent

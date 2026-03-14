@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-# gw installer script
-# Usage: curl -fsSL https://raw.githubusercontent.com/israelmalagutti/git-wrapper/main/scripts/install.sh | bash
+# gs installer script
+# Usage: curl -fsSL https://raw.githubusercontent.com/israelmalagutti/git-stack/main/scripts/install.sh | bash
 
-REPO="israelmalagutti/git-wrapper"
-BINARY_NAME="gw"
+REPO="israelmalagutti/git-stack"
+BINARY_NAME="gs"
 INSTALL_DIR="/usr/local/bin"
 
 # Colors
@@ -62,8 +62,8 @@ install() {
     info "Detected: ${OS}/${ARCH}"
 
     # Allow version override
-    if [ -n "$GW_VERSION" ]; then
-        VERSION="$GW_VERSION"
+    if [ -n "$GS_VERSION" ]; then
+        VERSION="$GS_VERSION"
         info "Using specified version: ${VERSION}"
     else
         info "Fetching latest version..."
@@ -115,12 +115,12 @@ install() {
     fi
 
     # Verify installation
-    if command -v gw &> /dev/null; then
-        info "Successfully installed gw $(gw --version 2>/dev/null | head -1 | awk '{print $3}')"
+    if command -v gs &> /dev/null; then
+        info "Successfully installed gs $(gs --version 2>/dev/null | head -1 | awk '{print $3}')"
         echo ""
-        echo "Run 'gw --help' to get started"
+        echo "Run 'gs --help' to get started"
     else
-        warn "Installation complete, but 'gw' not found in PATH"
+        warn "Installation complete, but 'gs' not found in PATH"
         echo "Add ${INSTALL_DIR} to your PATH if needed"
     fi
 }

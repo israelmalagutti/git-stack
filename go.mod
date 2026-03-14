@@ -1,4 +1,4 @@
-module github.com/israelmalagutti/git-wrapper
+module github.com/israelmalagutti/git-stack
 
 go 1.25.5
 

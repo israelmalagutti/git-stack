@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/israelmalagutti/git-wrapper/internal/config"
-	"github.com/israelmalagutti/git-wrapper/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +14,7 @@ var bottomCmd = &cobra.Command{
 	Long: `Jump directly to the trunk branch (bottom of the stack).
 
 Example:
-  gw bottom    # Checkout trunk`,
+  gs bottom    # Checkout trunk`,
 	Aliases: []string{"b"},
 	Args:    cobra.NoArgs,
 	RunE:    runBottom,

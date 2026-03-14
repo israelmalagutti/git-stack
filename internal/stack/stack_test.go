@@ -3,7 +3,7 @@ package stack
 import (
 	"testing"
 
-	"github.com/israelmalagutti/git-wrapper/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/config"
 )
 
 func TestNode(t *testing.T) {
