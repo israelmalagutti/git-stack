@@ -457,7 +457,7 @@ func readKey() (byte, error) {
 		}
 		return b[0], nil
 	}
-	defer term.Restore(fd, oldState)
+	defer func() { _ = term.Restore(fd, oldState) }()
 
 	b := make([]byte, 1)
 	if _, err := os.Stdin.Read(b); err != nil {

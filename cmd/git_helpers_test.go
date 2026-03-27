@@ -75,7 +75,7 @@ func TestNeedsRebase(t *testing.T) {
 		t.Fatalf("did not expect rebase before parent changes")
 	}
 
-	repo.repo.CheckoutBranch("main")
+	_ = repo.repo.CheckoutBranch("main")
 	repo.commitFile(t, "parent.txt", "parent", "parent commit")
 
 	needs, err = needsRebase(repo.repo, "feat-rebase", "main")
@@ -98,7 +98,7 @@ func TestConfirmHelpers(t *testing.T) {
 	if _, err := w.Write([]byte("y\n")); err != nil {
 		t.Fatalf("failed to write to pipe: %v", err)
 	}
-	w.Close()
+	_ = w.Close()
 	os.Stdin = r
 	if !confirm() {
 		t.Fatalf("expected confirm to accept yes")
@@ -111,7 +111,7 @@ func TestConfirmHelpers(t *testing.T) {
 	if _, err := w.Write([]byte("all\n")); err != nil {
 		t.Fatalf("failed to write to pipe: %v", err)
 	}
-	w.Close()
+	_ = w.Close()
 	os.Stdin = r
 	if got := confirmWithOptions(); got != "all" {
 		t.Fatalf("expected all, got %q", got)

@@ -36,9 +36,7 @@ func TestContinueWithSavedState(t *testing.T) {
 	if _, err := repo.repo.RunGitCommand("rebase", "main"); err != nil {
 		// Expected - no conflict in this case since files don't overlap
 		// Let's just create a saved state to test gs continue
-		if _, abortErr := repo.repo.RunGitCommand("rebase", "--abort"); abortErr != nil {
-			// Already completed, fine
-		}
+		_, _ = repo.repo.RunGitCommand("rebase", "--abort")
 	}
 
 	// Simulate saved continue state with feat-b remaining
@@ -113,9 +111,7 @@ func TestRestackSavesStateOnConflict(t *testing.T) {
 	}
 
 	// Cleanup
-	if _, err := repo.repo.RunGitCommand("rebase", "--abort"); err != nil {
-		// May fail if not in rebase, that's ok
-	}
+	_, _ = repo.repo.RunGitCommand("rebase", "--abort")
 	_ = config.ClearContinueState(repo.repo.GetContinueStatePath())
 }
 

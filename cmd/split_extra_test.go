@@ -10,7 +10,7 @@ func TestSplitByCommitMode(t *testing.T) {
 	defer repo.cleanup()
 
 	repo.createBranch(t, "feat-split", "main")
-	repo.repo.CheckoutBranch("feat-split")
+	_ = repo.repo.CheckoutBranch("feat-split")
 	repo.commitFile(t, "a.txt", "a", "commit a")
 	repo.commitFile(t, "b.txt", "b", "commit b")
 

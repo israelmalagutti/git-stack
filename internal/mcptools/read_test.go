@@ -68,12 +68,12 @@ func setupTestRepo(t *testing.T) func() {
 	gitDir := filepath.Join(tmpDir, ".git")
 	configData := `{"version":"1.0.0","trunk":"main"}`
 	metadataData := `{"branches":{}}`
-	os.WriteFile(filepath.Join(gitDir, ".gs_config"), []byte(configData), 0600)
-	os.WriteFile(filepath.Join(gitDir, ".gs_stack_metadata"), []byte(metadataData), 0600)
+	_ = os.WriteFile(filepath.Join(gitDir, ".gs_config"), []byte(configData), 0600)
+	_ = os.WriteFile(filepath.Join(gitDir, ".gs_stack_metadata"), []byte(metadataData), 0600)
 
 	return func() {
-		os.Chdir(origDir)
-		os.RemoveAll(tmpDir)
+		_ = os.Chdir(origDir)
+		_ = os.RemoveAll(tmpDir)
 	}
 }
 
@@ -93,8 +93,8 @@ func addTrackedBranch(t *testing.T, name, parent string) {
 	if err := os.WriteFile(fullPath, []byte("content of "+name), 0644); err != nil {
 		t.Fatalf("failed to write file %s: %v", fullPath, err)
 	}
-	exec.Command("git", "add", safeFilename).Run()
-	exec.Command("git", "commit", "-m", "commit on "+name).Run()
+	_ = exec.Command("git", "add", safeFilename).Run()
+	_ = exec.Command("git", "commit", "-m", "commit on "+name).Run()
 
 	// Update metadata
 	gitDirOut, _ := exec.Command("git", "rev-parse", "--git-dir").Output()
@@ -103,7 +103,7 @@ func addTrackedBranch(t *testing.T, name, parent string) {
 	data, _ := os.ReadFile(metadataPath)
 
 	var meta map[string]any
-	json.Unmarshal(data, &meta)
+	_ = json.Unmarshal(data, &meta)
 	branches := meta["branches"].(map[string]any)
 	branches[name] = map[string]any{
 		"parent":  parent,
@@ -111,7 +111,7 @@ func addTrackedBranch(t *testing.T, name, parent string) {
 		"created": "2026-01-01T00:00:00Z",
 	}
 	updated, _ := json.MarshalIndent(meta, "", "  ")
-	os.WriteFile(metadataPath, updated, 0600)
+	_ = os.WriteFile(metadataPath, updated, 0600)
 }
 
 func TestHandleStatus_EmptyStack(t *testing.T) {

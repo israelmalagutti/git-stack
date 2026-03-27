@@ -18,12 +18,12 @@ func setupTestRepo(t *testing.T) (string, func()) {
 
 	origDir, err := os.Getwd()
 	if err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to get current dir: %v", err)
 	}
 
 	if err := os.Chdir(tmpDir); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to change to temp dir: %v", err)
 	}
 
@@ -32,7 +32,7 @@ func setupTestRepo(t *testing.T) (string, func()) {
 		if chdirErr := os.Chdir(origDir); chdirErr != nil {
 			t.Fatalf("failed to restore dir after init failure: %v", chdirErr)
 		}
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to init git repo: %v", err)
 	}
 
@@ -40,21 +40,21 @@ func setupTestRepo(t *testing.T) (string, func()) {
 		if chdirErr := os.Chdir(origDir); chdirErr != nil {
 			t.Fatalf("failed to restore dir after git config failure: %v", chdirErr)
 		}
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to set git user.email: %v", err)
 	}
 	if err := exec.Command("git", "config", "user.name", "Test User").Run(); err != nil {
 		if chdirErr := os.Chdir(origDir); chdirErr != nil {
 			t.Fatalf("failed to restore dir after git config failure: %v", chdirErr)
 		}
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to set git user.name: %v", err)
 	}
 	if err := exec.Command("git", "config", "commit.gpgsign", "false").Run(); err != nil {
 		if chdirErr := os.Chdir(origDir); chdirErr != nil {
 			t.Fatalf("failed to restore dir after git config failure: %v", chdirErr)
 		}
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to disable git gpg signing: %v", err)
 	}
 
@@ -63,28 +63,28 @@ func setupTestRepo(t *testing.T) (string, func()) {
 		if chdirErr := os.Chdir(origDir); chdirErr != nil {
 			t.Fatalf("failed to restore dir after write failure: %v", chdirErr)
 		}
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to write test file: %v", err)
 	}
 	if err := exec.Command("git", "add", ".").Run(); err != nil {
 		if chdirErr := os.Chdir(origDir); chdirErr != nil {
 			t.Fatalf("failed to restore dir after git add failure: %v", chdirErr)
 		}
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to git add: %v", err)
 	}
 	if err := exec.Command("git", "commit", "-m", "Initial commit").Run(); err != nil {
 		if chdirErr := os.Chdir(origDir); chdirErr != nil {
 			t.Fatalf("failed to restore dir after git commit failure: %v", chdirErr)
 		}
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to git commit: %v", err)
 	}
 	if err := exec.Command("git", "branch", "-M", "main").Run(); err != nil {
 		if chdirErr := os.Chdir(origDir); chdirErr != nil {
 			t.Fatalf("failed to restore dir after git branch failure: %v", chdirErr)
 		}
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to rename branch to main: %v", err)
 	}
 
@@ -92,7 +92,7 @@ func setupTestRepo(t *testing.T) (string, func()) {
 		if err := os.Chdir(origDir); err != nil {
 			t.Errorf("failed to restore dir: %v", err)
 		}
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 	}
 
 	return tmpDir, cleanup

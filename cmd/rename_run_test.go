@@ -7,7 +7,7 @@ func TestRunRenamePaths(t *testing.T) {
 	defer repo.cleanup()
 
 	repo.createBranch(t, "feat-rename", "main")
-	repo.repo.CheckoutBranch("feat-rename")
+	_ = repo.repo.CheckoutBranch("feat-rename")
 
 	// Same name should be no-op
 	if err := runRename(nil, []string{"feat-rename"}); err != nil {

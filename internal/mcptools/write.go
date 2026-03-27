@@ -647,7 +647,7 @@ func handleRename(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 
 		if err := state.Metadata.Save(state.Repo.GetMetadataPath()); err != nil {
 			// Rollback git rename
-			state.Repo.RunGitCommand("branch", "-m", newName, currentBranch)
+			_, _ = state.Repo.RunGitCommand("branch", "-m", newName, currentBranch)
 			return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
 		}
 	}
@@ -763,13 +763,13 @@ func handleRestack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 		// Update parent revision
 		parentSHA, _ := state.Repo.GetBranchCommit(parent)
 		state.Metadata.SetParentRevision(branch, parentSHA)
-		state.Metadata.Save(state.Repo.GetMetadataPath())
+		_ = state.Metadata.Save(state.Repo.GetMetadataPath())
 
 		restacked = append(restacked, branch)
 	}
 
 	// Return to original branch
-	state.Repo.CheckoutBranch(originalBranch)
+	_ = state.Repo.CheckoutBranch(originalBranch)
 
 	return jsonResult(restackResponse{Restacked: restacked, Skipped: skipped})
 }
@@ -935,8 +935,8 @@ func handleModify(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 				state.Metadata.SetParentRevision(child.Name, parentSHA)
 			}
 		}
-		state.Metadata.Save(state.Repo.GetMetadataPath())
-		state.Repo.CheckoutBranch(currentBranch)
+		_ = state.Metadata.Save(state.Repo.GetMetadataPath())
+		_ = state.Repo.CheckoutBranch(currentBranch)
 	}
 
 	return jsonResult(modifyResponse{
@@ -1030,7 +1030,7 @@ func handleMove(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 	// Update parent revision
 	ontoSHA, _ := state.Repo.GetBranchCommit(onto)
 	state.Metadata.SetParentRevision(branchName, ontoSHA)
-	state.Metadata.Save(state.Repo.GetMetadataPath())
+	_ = state.Metadata.Save(state.Repo.GetMetadataPath())
 
 	return jsonResult(moveResponse{
 		Branch:    branchName,
@@ -1110,11 +1110,11 @@ func handleFold(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 
 	if !keep {
 		// Delete the folded branch
-		state.Repo.RunGitCommand("branch", "-D", currentBranch)
+		_, _ = state.Repo.RunGitCommand("branch", "-D", currentBranch)
 		state.Metadata.UntrackBranch(currentBranch)
 	}
 
-	state.Metadata.Save(state.Repo.GetMetadataPath())
+	_ = state.Metadata.Save(state.Repo.GetMetadataPath())
 
 	return jsonResult(foldResponse{
 		Folded:     currentBranch,
