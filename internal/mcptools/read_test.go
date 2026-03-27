@@ -349,3 +349,132 @@ func TestHandleBranchInfo_WithChildren(t *testing.T) {
 		t.Errorf("expected child 'feat/auth-tests', got '%s'", resp.Children[0])
 	}
 }
+
+// --- gs_log tests ---
+
+func TestHandleLog_BasicTree(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+
+	req := mcp.CallToolRequest{}
+	result, err := handleLog(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleLog returned error: %v", err)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp logResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if resp.Trunk != "main" {
+		t.Errorf("expected trunk 'main', got '%s'", resp.Trunk)
+	}
+	if len(resp.Branches) != 2 {
+		t.Errorf("expected 2 branches, got %d", len(resp.Branches))
+	}
+
+	// By default, commits should not be included
+	for _, b := range resp.Branches {
+		if len(b.Commits) > 0 {
+			t.Errorf("expected no commits without include_commits, got %d for %s", len(b.Commits), b.Name)
+		}
+	}
+}
+
+func TestHandleLog_WithCommits(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+
+	req := makeRequest("gs_log", map[string]any{"include_commits": true})
+	result, err := handleLog(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleLog returned error: %v", err)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp logResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	// Find feat/auth and check it has commits
+	for _, b := range resp.Branches {
+		if b.Name == "feat/auth" {
+			if len(b.Commits) == 0 {
+				t.Error("expected commits for feat/auth with include_commits=true")
+			}
+			return
+		}
+	}
+	t.Error("feat/auth not found in response")
+}
+
+// --- gs_diff tests ---
+
+func TestHandleDiff_BranchWithChanges(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+
+	req := makeRequest("gs_diff", map[string]any{"branch": "feat/auth"})
+	result, err := handleDiff(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleDiff returned error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("handleDiff returned tool error")
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp diffResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if resp.Branch != "feat/auth" {
+		t.Errorf("expected branch 'feat/auth', got '%s'", resp.Branch)
+	}
+	if resp.Parent != "main" {
+		t.Errorf("expected parent 'main', got '%s'", resp.Parent)
+	}
+	if resp.Diff == "" {
+		t.Error("expected non-empty diff")
+	}
+}
+
+func TestHandleDiff_DefaultsToCurrent(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+	// feat/auth is now the current branch
+
+	req := makeRequest("gs_diff", map[string]any{})
+	result, err := handleDiff(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleDiff returned error: %v", err)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp diffResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if resp.Branch != "feat/auth" {
+		t.Errorf("expected default to current branch 'feat/auth', got '%s'", resp.Branch)
+	}
+}
+
+func TestHandleDiff_TrunkErrors(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	req := makeRequest("gs_diff", map[string]any{"branch": "main"})
+	result, err := handleDiff(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleDiff returned error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected error when diffing trunk (no parent)")
+	}
+}
