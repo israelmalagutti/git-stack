@@ -7,4 +7,5 @@ import (
 // Register adds all MCP tools to the server.
 func Register(s *server.MCPServer) {
 	registerReadTools(s)
+	registerWriteTools(s)
 }
