@@ -10,8 +10,9 @@ import (
 )
 
 var infoCmd = &cobra.Command{
-	Use:   "info [branch]",
-	Short: "Display information about a branch",
+	Use:     "info [branch]",
+	Aliases: []string{"i"},
+	Short:   "Display information about a branch",
 	Long: `Display detailed information about a branch in the stack.
 
 If no branch is specified, shows information for the current branch.

@@ -3,6 +3,8 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -11,17 +13,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var initReset bool
+
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize gs in the current repository",
 	Long: `Initialize gs in the current git repository by selecting a trunk branch.
 
 The trunk branch is the main branch that stacks are based on (typically 'main' or 'master').
-This command creates the necessary configuration files in .git/ directory.`,
+This command creates the necessary configuration files in .git/ directory.
+
+Use --reset to wipe all gs (and legacy gw) config files and start fresh.`,
 	RunE: runInit,
 }
 
 func init() {
+	initCmd.Flags().BoolVar(&initReset, "reset", false, "Remove all gs/gw config and reinitialize from scratch")
 	rootCmd.AddCommand(initCmd)
 }
 
@@ -32,9 +39,29 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize repository: %w", err)
 	}
 
-	// Check if already initialized
+	// --reset: wipe all gs and gw config files
+	if initReset {
+		removeConfigFiles(repo)
+		fmt.Println("✓ Removed all gs/gw config files")
+	}
+
+	// Auto-migrate from gw if legacy files exist
+	migrated, err := migrateFromGW(repo)
+	if err != nil {
+		return fmt.Errorf("failed to migrate from gw: %w", err)
+	}
+	if migrated {
+		fmt.Println("✓ Migrated config from gw → gs")
+	}
+
+	// Check if already initialized (either natively or after migration)
 	configPath := repo.GetConfigPath()
 	if config.IsInitialized(configPath) {
+		if migrated {
+			fmt.Printf("  Config: %s\n", configPath)
+			fmt.Printf("  Metadata: %s\n", repo.GetMetadataPath())
+			return nil
+		}
 		return fmt.Errorf("gs is already initialized in this repository\nConfig file: %s", configPath)
 	}
 
@@ -109,4 +136,53 @@ func runInit(cmd *cobra.Command, args []string) error {
 	fmt.Println("or 'gs create' to create new branches in your stack")
 
 	return nil
+}
+
+// removeConfigFiles deletes all gs and legacy gw config files.
+func removeConfigFiles(repo *git.Repo) {
+	commonDir := repo.GetCommonDir()
+	files := []string{
+		".gs_config", ".gs_stack_metadata", ".gs_continue_state",
+		".gw_config", ".gw_stack_metadata", ".gw_continue_state",
+	}
+	for _, f := range files {
+		os.Remove(filepath.Join(commonDir, f))
+	}
+}
+
+// migrateFromGW renames legacy .gw_* files to .gs_* and removes the old files.
+// Returns true if migration occurred.
+func migrateFromGW(repo *git.Repo) (bool, error) {
+	commonDir := repo.GetCommonDir()
+
+	migrations := []struct{ old, new string }{
+		{".gw_config", ".gs_config"},
+		{".gw_stack_metadata", ".gs_stack_metadata"},
+		{".gw_continue_state", ".gs_continue_state"},
+	}
+
+	migrated := false
+	for _, m := range migrations {
+		oldPath := filepath.Join(commonDir, m.old)
+		newPath := filepath.Join(commonDir, m.new)
+
+		if _, err := os.Stat(oldPath); os.IsNotExist(err) {
+			continue
+		}
+
+		// Don't overwrite existing gs files
+		if _, err := os.Stat(newPath); err == nil {
+			// gs file already exists, just remove the old one
+			os.Remove(oldPath)
+			migrated = true
+			continue
+		}
+
+		if err := os.Rename(oldPath, newPath); err != nil {
+			return false, fmt.Errorf("failed to rename %s → %s: %w", m.old, m.new, err)
+		}
+		migrated = true
+	}
+
+	return migrated, nil
 }
