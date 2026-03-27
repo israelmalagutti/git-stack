@@ -1,0 +1,94 @@
+name: Auto Version
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest version tag
+        id: latest
+        run: |
+          TAG=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+          if [ -z "$TAG" ]; then
+            TAG="v0.0.0"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Latest tag: $TAG"
+
+      - name: Determine bump type from PR labels
+        id: bump
+        env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # Check PR labels first
+          if echo "$LABELS" | grep -qi '"major"\|"breaking"'; then
+            echo "type=major" >> $GITHUB_OUTPUT
+            echo "Bump: major (from label)"
+          elif echo "$LABELS" | grep -qi '"patch"\|"fix"'; then
+            echo "type=patch" >> $GITHUB_OUTPUT
+            echo "Bump: patch (from label)"
+          elif echo "$LABELS" | grep -qi '"skip-release"\|"no-release"'; then
+            echo "type=skip" >> $GITHUB_OUTPUT
+            echo "Bump: skip (from label)"
+          else
+            # Default: minor
+            echo "type=minor" >> $GITHUB_OUTPUT
+            echo "Bump: minor (default)"
+          fi
+
+      - name: Compute next version
+        if: steps.bump.outputs.type != 'skip'
+        id: next
+        env:
+          CURRENT: ${{ steps.latest.outputs.tag }}
+          BUMP: ${{ steps.bump.outputs.type }}
+        run: |
+          # Strip v prefix
+          VERSION="${CURRENT#v}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          PATCH=$(echo "$VERSION" | cut -d. -f3)
+
+          case "$BUMP" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEXT="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "version=$NEXT" >> $GITHUB_OUTPUT
+          echo "Next version: $NEXT"
+
+      - name: Create and push tag
+        if: steps.bump.outputs.type != 'skip'
+        env:
+          NEXT: ${{ steps.next.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$NEXT" -m "Release $NEXT"
+          git push origin "$NEXT"
+          echo "✓ Tagged and pushed $NEXT"
