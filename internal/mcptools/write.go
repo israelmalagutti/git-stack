@@ -12,6 +12,8 @@ import (
 func registerWriteTools(s *server.MCPServer) {
 	s.AddTool(checkoutTool, handleCheckout)
 	s.AddTool(navigateTool, handleNavigate)
+	s.AddTool(createTool, handleCreate)
+	s.AddTool(deleteTool, handleDelete)
 }
 
 // --- gs_checkout ---
@@ -266,4 +268,165 @@ func findLeaves(node *stack.Node) []*stack.Node {
 		walk(child)
 	}
 	return leaves
+}
+
+// --- gs_create ---
+
+var createTool = mcp.NewTool("gs_create",
+	mcp.WithDescription("Create a new stacked branch on top of the current branch. Optionally commit staged changes with a message."),
+	mcp.WithString("name",
+		mcp.Required(),
+		mcp.Description("Name for the new branch"),
+	),
+	mcp.WithString("commit_message",
+		mcp.Description("If provided, commit staged changes with this message on the new branch"),
+	),
+)
+
+type createResponse struct {
+	Branch        string `json:"branch"`
+	Parent        string `json:"parent"`
+	CommitCreated bool   `json:"commit_created"`
+}
+
+func handleCreate(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	name, err := req.RequireString("name")
+	if err != nil {
+		return errResult("missing required parameter: name"), nil
+	}
+
+	commitMsg := req.GetString("commit_message", "")
+
+	state, err := loadRepoState()
+	if err != nil {
+		return errResult(err.Error()), nil
+	}
+
+	parentBranch := state.Stack.Current
+
+	if state.Repo.BranchExists(name) {
+		return errResult(fmt.Sprintf("branch '%s' already exists", name)), nil
+	}
+
+	// Create and checkout the new branch
+	if err := state.Repo.CreateBranch(name); err != nil {
+		return errResult(fmt.Sprintf("failed to create branch: %v", err)), nil
+	}
+	if err := state.Repo.CheckoutBranch(name); err != nil {
+		return errResult(fmt.Sprintf("failed to checkout branch: %v", err)), nil
+	}
+
+	// Track in metadata
+	parentSHA, _ := state.Repo.GetBranchCommit(parentBranch)
+	state.Metadata.TrackBranch(name, parentBranch, parentSHA)
+	if err := state.Metadata.Save(state.Repo.GetMetadataPath()); err != nil {
+		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
+	}
+
+	// Optionally commit
+	commitCreated := false
+	if commitMsg != "" {
+		_, err := state.Repo.RunGitCommand("commit", "-m", commitMsg)
+		if err != nil {
+			// Commit failed (probably no staged changes) — not fatal
+			commitCreated = false
+		} else {
+			commitCreated = true
+		}
+	}
+
+	return jsonResult(createResponse{
+		Branch:        name,
+		Parent:        parentBranch,
+		CommitCreated: commitCreated,
+	})
+}
+
+// --- gs_delete ---
+
+var deleteTool = mcp.NewTool("gs_delete",
+	mcp.WithDescription("Delete a branch from the stack. Children are reparented to the deleted branch's parent. If deleting the current branch, checks out the parent first."),
+	mcp.WithString("branch",
+		mcp.Required(),
+		mcp.Description("Name of the branch to delete"),
+	),
+	mcp.WithBoolean("force",
+		mcp.Description("Force delete even if branch has unmerged changes (default: true for MCP)"),
+	),
+)
+
+type deleteResponse struct {
+	Deleted           string   `json:"deleted"`
+	ReparentedChildren []string `json:"reparented_children"`
+	NewParent         string   `json:"new_parent"`
+	CheckedOut        string   `json:"checked_out,omitempty"`
+}
+
+func handleDelete(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	branchName, err := req.RequireString("branch")
+	if err != nil {
+		return errResult("missing required parameter: branch"), nil
+	}
+
+	state, err := loadRepoState()
+	if err != nil {
+		return errResult(err.Error()), nil
+	}
+
+	// Validate
+	if branchName == state.Config.Trunk {
+		return errResult("cannot delete trunk branch"), nil
+	}
+	if !state.Repo.BranchExists(branchName) {
+		return errResult(fmt.Sprintf("branch '%s' does not exist", branchName)), nil
+	}
+	if !state.Metadata.IsTracked(branchName) {
+		return errResult(fmt.Sprintf("branch '%s' is not tracked by gs", branchName)), nil
+	}
+
+	node := state.Stack.GetNode(branchName)
+	if node == nil {
+		return errResult("branch not found in stack"), nil
+	}
+
+	parentBranch, ok := state.Metadata.GetParent(branchName)
+	if !ok {
+		return errResult("branch has no parent"), nil
+	}
+
+	// If deleting current branch, checkout parent first
+	checkedOut := ""
+	if branchName == state.Stack.Current {
+		if err := state.Repo.CheckoutBranch(parentBranch); err != nil {
+			return errResult(fmt.Sprintf("failed to checkout parent: %v", err)), nil
+		}
+		checkedOut = parentBranch
+	}
+
+	// Reparent children
+	reparented := make([]string, 0, len(node.Children))
+	for _, child := range node.Children {
+		if err := state.Metadata.UpdateParent(child.Name, parentBranch); err != nil {
+			return errResult(fmt.Sprintf("failed to reparent '%s': %v", child.Name, err)), nil
+		}
+		reparented = append(reparented, child.Name)
+	}
+
+	// Delete the git branch
+	if _, err := state.Repo.RunGitCommand("branch", "-D", branchName); err != nil {
+		return errResult(fmt.Sprintf("failed to delete branch: %v", err)), nil
+	}
+
+	// Remove from metadata
+	state.Metadata.UntrackBranch(branchName)
+	if err := state.Metadata.Save(state.Repo.GetMetadataPath()); err != nil {
+		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
+	}
+
+	return jsonResult(deleteResponse{
+		Deleted:            branchName,
+		ReparentedChildren: reparented,
+		NewParent:          parentBranch,
+		CheckedOut:         checkedOut,
+	})
 }
