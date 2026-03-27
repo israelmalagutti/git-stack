@@ -7,10 +7,14 @@
 ## Key Documentation
 
 - `docs/visualization-decisions.md` — Every major design decision and rationale behind `gs log` visualization. Read this before modifying the tree rendering code.
+- `docs/mcp.md` — MCP server design: what MCP is, why gs uses it, tool reference, and architecture. Read this before modifying `cmd/mcp.go` or `internal/mcptools/`.
+- `ai-context/mcp-server.md` — Full implementation plan with phases, data structures, and design decisions.
 
 ## Architecture
 
 - `cmd/` — Cobra command definitions (one file per command)
+- `cmd/mcp.go` — MCP server subcommand (`gs mcp`)
+- `internal/mcptools/` — MCP tool handlers (read, write, navigation)
 - `internal/stack/` — Stack tree model (`stack.go`) and visualization (`visualize.go`)
 - `internal/colors/` — ANSI color system and terminal output helpers
 - `internal/config/` — Config and metadata persistence
