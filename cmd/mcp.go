@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/israelmalagutti/git-stack/internal/mcptools"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
 )
@@ -37,6 +38,8 @@ func runMCP(cmd *cobra.Command, args []string) error {
 		Version,
 		server.WithToolCapabilities(false),
 	)
+
+	mcptools.Register(s)
 
 	return server.ServeStdio(s)
 }
