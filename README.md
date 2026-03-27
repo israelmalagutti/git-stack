@@ -9,6 +9,8 @@ A fast, simple git stack management CLI tool for working with stacked diffs (sta
 - **Rebase Operations** - Automatic restacking when parent branches change
 - **Interactive UI** - Prompts for branch selection, conflict resolution guidance
 - **Platform Agnostic** - Works with any git hosting (GitHub, GitLab, etc.)
+- **Metadata Sync** - Stack structure stored in git refs, shareable across developers and machines via push/fetch
+- **MCP Server** - AI agent integration via Model Context Protocol (`gs mcp`)
 
 ## Installation
 
@@ -98,7 +100,9 @@ gs stack restack
 | `gs fold` | | Fold current branch into parent |
 | `gs delete [branch]` | `rm` | Delete branch from stack |
 | `gs split` | | Split branch into multiple branches |
-| `gs sync` | | Sync metadata with git branches |
+| `gs rename <name>` | | Rename the current branch |
+| `gs sync` | | Fetch remote, clean stale branches, delete merged, and restack |
+| `gs mcp` | | Start the MCP server for AI agent integration |
 
 ### Split Modes
 
@@ -171,31 +175,18 @@ gs --version
    ```
 4. GitHub Actions will automatically build and publish the release
 
+## MCP Server
+
+`gs mcp` starts a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio, letting AI agents (Claude Code, Cursor, VS Code Copilot, etc.) manage stacks programmatically. See [docs/mcp.md](docs/mcp.md) for the full tool reference and architecture.
+
 ## Configuration
 
-gs stores configuration in `.gs/config.json` at the repository root:
+gs stores metadata in two locations (dual-write):
 
-```json
-{
-  "trunk": "main",
-  "version": "1.0.0"
-}
-```
+- **Git refs** (`refs/gs/meta/*`, `refs/gs/config`) — shareable via `git push`/`fetch`, syncs stack structure across developers and machines
+- **Local JSON** (`.git/.gs_stack_metadata`) — fallback for offline/legacy use
 
-Branch metadata is stored in `.gs/metadata.json`:
-
-```json
-{
-  "branches": {
-    "feat-auth": {
-      "parent": "main"
-    },
-    "feat-auth-ui": {
-      "parent": "feat-auth"
-    }
-  }
-}
-```
+On read, refs are tried first with automatic fallback to JSON. See [docs/branch-metadata-sync.md](docs/branch-metadata-sync.md) for the full design.
 
 ## License
 

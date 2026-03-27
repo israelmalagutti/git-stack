@@ -9,6 +9,7 @@
 - `docs/visualization-decisions.md` — Every major design decision and rationale behind `gs log` visualization. Read this before modifying the tree rendering code.
 - `docs/mcp.md` — MCP server design: what MCP is, why gs uses it, tool reference, and architecture. Read this before modifying `cmd/mcp.go` or `internal/mcptools/`.
 - `ai-context/mcp-server.md` — Full implementation plan with phases, data structures, and design decisions.
+- `docs/branch-metadata-sync.md` — Ref-backed metadata sync design: why git refs, storage format, sync protocol, and team workflows. Read this before modifying `internal/config/ref_metadata.go` or `internal/git/refs.go`.
 
 ## Architecture
 
@@ -18,7 +19,10 @@
 - `internal/stack/` — Stack tree model (`stack.go`) and visualization (`visualize.go`)
 - `internal/colors/` — ANSI color system and terminal output helpers
 - `internal/config/` — Config and metadata persistence
+- `internal/config/ref_metadata.go` — Ref-backed metadata read/write (`refs/gs/meta/*`, `refs/gs/config`)
 - `internal/git/` — Git repository operations wrapper
+- `internal/git/refs.go` — Low-level git ref primitives (blob storage via `hash-object` / `update-ref`)
+- `cmd/metadata_loader.go` — Metadata loading orchestration (ref-first with JSON fallback, auto-migration)
 
 ## Build & Test
 
