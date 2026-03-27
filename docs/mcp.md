@@ -230,3 +230,60 @@ Fetch remote, sync trunk, restack.
 #### `gs_submit`
 Create/update PRs for branches.
 - **Parameters**: `branch` (string, optional), `scope` (enum: current/stack)
+
+## Common workflow patterns
+
+These patterns show how tools chain together for typical operations. AI agents should follow these sequences.
+
+### Create a new stack
+
+```
+gs_checkout branch="main"
+# stage changes
+gs_create name="feat/auth" commit_message="add auth middleware"
+# stage more changes
+gs_create name="feat/auth-tests" commit_message="add auth tests"
+gs_status  # verify the stack
+```
+
+### Modify a branch mid-stack
+
+```
+gs_checkout branch="feat/auth"
+# make changes
+gs_modify stage_all=true message="update auth middleware"
+gs_restack scope="upstack" branch="feat/auth"  # propagate to descendants
+```
+
+### Clean up after a branch is merged upstream
+
+```
+gs_status  # identify which branch was merged
+gs_delete branch="feat/auth"  # reparents children to its parent
+gs_restack scope="all"  # rebase everything onto updated trunk
+```
+
+### Reorganize the stack
+
+```
+gs_status  # understand current layout
+gs_move branch="feat/tests" onto="main"  # move branch to new parent
+gs_restack scope="upstack" branch="feat/tests"  # rebase descendants
+```
+
+### Resolve a restack conflict
+
+```
+gs_restack  # → returns conflict info
+# resolve conflicts: edit files, git add, git rebase --continue
+gs_restack  # retry — skips already-restacked branches
+```
+
+### Fold completed work into parent
+
+```
+gs_checkout branch="feat/auth-wip"
+gs_diff  # review changes
+gs_fold  # squash into parent, reparent children
+gs_restack scope="upstack"  # rebase reparented children
+```

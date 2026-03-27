@@ -27,6 +27,27 @@
 - Test: `go test ./...`
 - Lint: handled by CI (golangci-lint)
 
+## Stacking Mental Model (for MCP agents)
+
+A "stack" is a tree of branches where each branch builds on its parent:
+
+```
+main (trunk)
+├── feat/auth (depth 1, parent: main)
+│   ├── feat/auth-tests (depth 2, parent: feat/auth)
+│   └── feat/auth-docs (depth 2, parent: feat/auth)
+└── feat/logging (depth 1, parent: main)
+```
+
+Key concepts:
+- **Trunk**: The base branch (usually main/master). Cannot be deleted, renamed, or moved.
+- **Parent**: The branch this branch was created on top of. Changes in the parent flow down during restack.
+- **Depth**: Distance from trunk (trunk=0, its children=1, etc.).
+- **Restack**: Rebasing a branch onto the current tip of its parent. Required after parent is modified.
+- **Navigation**: "up" = toward leaves (children), "down" = toward trunk (parent).
+
+The MCP server (`gs mcp`) exposes tools for programmatic stack management. Always call `gs_status` first to orient yourself. See `docs/mcp.md` for the full tool reference and workflow patterns.
+
 ## Visualization Invariants
 
 - Every branch-out branch must be able to branch out on its own, in its own column. The column-based layout guarantees that any branch — regardless of depth — can have children that fork into new columns to its right. No branch is "locked" into a terminal position; the tree supports arbitrary nesting.
