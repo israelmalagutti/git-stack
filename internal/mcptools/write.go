@@ -26,7 +26,11 @@ func registerWriteTools(s *server.MCPServer) {
 // --- gs_checkout ---
 
 var checkoutTool = mcp.NewTool("gs_checkout",
-	mcp.WithDescription("Switch to a branch in the stack."),
+	mcp.WithDescription(`Switch to a specific branch by name. Works with any git branch, including branches not tracked by gs.
+
+Use this when you know the exact branch name. For relative navigation within the stack (move to parent, child, or leaf), use gs_navigate instead — it understands the stack structure and moves along parent-child edges.
+
+Returns: {previous_branch, current_branch}`),
 	mcp.WithString("branch",
 		mcp.Required(),
 		mcp.Description("Name of the branch to switch to"),
@@ -52,7 +56,7 @@ func handleCheckout(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallTool
 	previousBranch := state.Stack.Current
 
 	if !state.Repo.BranchExists(branchName) {
-		return errResult(fmt.Sprintf("branch '%s' does not exist", branchName)), nil
+		return errResult(fmt.Sprintf("branch '%s' does not exist — call gs_status to see all tracked branches", branchName)), nil
 	}
 
 	if err := state.Repo.CheckoutBranch(branchName); err != nil {
@@ -68,10 +72,23 @@ func handleCheckout(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallTool
 // --- gs_navigate ---
 
 var navigateTool = mcp.NewTool("gs_navigate",
-	mcp.WithDescription("Move up/down/top/bottom in the stack. Returns the new current branch. If navigation is ambiguous (multiple children when going up), returns the list of options instead of prompting."),
+	mcp.WithDescription(`Move through the stack along parent-child edges. Direction meanings:
+- "down": toward trunk (to the parent branch)
+- "up": toward leaves (to a child branch)
+- "bottom": jump directly to trunk
+- "top": jump to the leaf of the current stack line
+
+The steps parameter (default 1) only applies to "up" and "down" directions.
+
+IMPORTANT: If the current branch has multiple children, "up" navigation is ambiguous. Instead of choosing, the tool returns {error: "ambiguous_navigation", options: [...]} listing the child branch names. Use gs_checkout to pick one.
+
+Use gs_navigate for relative movement within a stack. Use gs_checkout when you know the exact branch name.
+
+Returns on success: {previous_branch, current_branch, steps_taken}
+Returns on ambiguity: {error: "ambiguous_navigation", direction, options[], message}`),
 	mcp.WithString("direction",
 		mcp.Required(),
-		mcp.Description("Direction to navigate"),
+		mcp.Description("Direction to navigate: up (toward leaves), down (toward trunk), top (to leaf), bottom (to trunk)"),
 		mcp.Enum("up", "down", "top", "bottom"),
 	),
 	mcp.WithNumber("steps",

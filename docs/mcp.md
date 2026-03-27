@@ -150,12 +150,17 @@ Get the unified diff for a branch compared to its parent. Shows only changes int
 ### Navigation tools
 
 #### `gs_checkout`
-Switch to a branch.
+Switch to a specific branch by name. Works with any git branch, including untracked ones.
 - **Parameters**: `branch` (string, required)
+- **Returns**: `{previous_branch, current_branch}`
+- **When to use**: When you know the exact branch name. For relative movement, use `gs_navigate`.
 
 #### `gs_navigate`
-Move up/down/top/bottom in the stack.
-- **Parameters**: `direction` (enum: up/down/top/bottom), `steps` (int, optional)
+Move through the stack along parent-child edges.
+- **Parameters**: `direction` (enum: up/down/top/bottom), `steps` (int, optional — default: 1, only for up/down)
+- **Returns**: `{previous_branch, current_branch, steps_taken}` or `{error: "ambiguous_navigation", options[]}` when multiple children exist
+- **Direction meanings**: `down` = toward trunk, `up` = toward leaves, `bottom` = jump to trunk, `top` = jump to leaf
+- **When to use**: For relative stack movement. Use `gs_checkout` when you know the target branch name.
 
 ### Mutation tools
 
