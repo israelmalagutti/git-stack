@@ -17,6 +17,8 @@ func registerWriteTools(s *server.MCPServer) {
 	s.AddTool(trackTool, handleTrack)
 	s.AddTool(untrackTool, handleUntrack)
 	s.AddTool(renameTool, handleRename)
+	s.AddTool(restackTool, handleRestack)
+	s.AddTool(modifyTool, handleModify)
 }
 
 // --- gs_checkout ---
@@ -593,4 +595,270 @@ func handleRename(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 	}
 
 	return jsonResult(renameResponse{OldName: currentBranch, NewName: newName})
+}
+
+// --- gs_restack ---
+
+var restackTool = mcp.NewTool("gs_restack",
+	mcp.WithDescription("Rebase branches to maintain parent-child relationships. Rebases each branch onto its parent using precise --onto when possible. Returns the list of restacked branches or conflict info."),
+	mcp.WithString("branch",
+		mcp.Description("Branch to start from (defaults to current)"),
+	),
+	mcp.WithString("scope",
+		mcp.Description("Scope of restacking"),
+		mcp.Enum("only", "upstack", "downstack", "all"),
+	),
+)
+
+type restackResponse struct {
+	Restacked []string `json:"restacked"`
+	Skipped   []string `json:"skipped"`
+	Conflict  string   `json:"conflict,omitempty"`
+}
+
+func handleRestack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	state, err := loadRepoState()
+	if err != nil {
+		return errResult(err.Error()), nil
+	}
+
+	// Check for uncommitted changes
+	dirty, err := state.Repo.HasUncommittedChanges()
+	if err != nil {
+		return errResult(fmt.Sprintf("failed to check working tree: %v", err)), nil
+	}
+	if dirty {
+		return errResult("uncommitted changes — commit or stash before restacking"), nil
+	}
+
+	branchName := req.GetString("branch", state.Stack.Current)
+	scope := req.GetString("scope", "all")
+
+	if state.Stack.GetNode(branchName) == nil && branchName != state.Config.Trunk {
+		return errResult(fmt.Sprintf("branch '%s' is not tracked by gs", branchName)), nil
+	}
+
+	// Compute branches to restack
+	branches := computeMCPRestackBranches(state, branchName, scope)
+	if len(branches) == 0 {
+		return jsonResult(restackResponse{Restacked: []string{}, Skipped: []string{}})
+	}
+
+	originalBranch := state.Stack.Current
+	restacked := []string{}
+	skipped := []string{}
+
+	for _, branch := range branches {
+		node := state.Stack.GetNode(branch)
+		if node == nil || node.Parent == nil {
+			continue
+		}
+
+		parent := node.Parent.Name
+
+		if err := state.Repo.CheckoutBranch(branch); err != nil {
+			return errResult(fmt.Sprintf("failed to checkout '%s': %v", branch, err)), nil
+		}
+
+		// Check if needs rebase
+		behind, err := state.Repo.IsBehind(branch, parent)
+		if err != nil {
+			return errResult(fmt.Sprintf("failed to check rebase status: %v", err)), nil
+		}
+
+		if !behind {
+			skipped = append(skipped, branch)
+			continue
+		}
+
+		// Perform rebase using --onto when possible
+		parentRev := state.Metadata.GetParentRevision(branch)
+		var rebaseErr error
+		if parentRev != "" {
+			rebaseErr = state.Repo.RebaseOnto(branch, parent, parentRev)
+		} else {
+			rebaseErr = state.Repo.Rebase(branch, parent)
+		}
+
+		if rebaseErr != nil {
+			return jsonResult(restackResponse{
+				Restacked: restacked,
+				Skipped:   skipped,
+				Conflict:  fmt.Sprintf("conflict restacking '%s' onto '%s' — resolve conflicts, then run gs continue", branch, parent),
+			})
+		}
+
+		// Update parent revision
+		parentSHA, _ := state.Repo.GetBranchCommit(parent)
+		state.Metadata.SetParentRevision(branch, parentSHA)
+		state.Metadata.Save(state.Repo.GetMetadataPath())
+
+		restacked = append(restacked, branch)
+	}
+
+	// Return to original branch
+	state.Repo.CheckoutBranch(originalBranch)
+
+	return jsonResult(restackResponse{Restacked: restacked, Skipped: skipped})
+}
+
+func computeMCPRestackBranches(state *repoState, branch, scope string) []string {
+	switch scope {
+	case "only":
+		if branch == state.Config.Trunk {
+			return nil
+		}
+		return []string{branch}
+
+	case "upstack":
+		result := []string{}
+		if branch != state.Config.Trunk {
+			result = append(result, branch)
+		}
+		result = append(result, descendantsDFS(state.Stack, branch)...)
+		return result
+
+	case "downstack":
+		return ancestorsOf(state.Stack, state.Config.Trunk, branch)
+
+	default: // "all"
+		if branch == state.Config.Trunk {
+			return allTopological(state.Stack)
+		}
+		ancestors := ancestorsOf(state.Stack, state.Config.Trunk, branch)
+		descendants := descendantsDFS(state.Stack, branch)
+		return append(ancestors, descendants...)
+	}
+}
+
+func allTopological(s *stack.Stack) []string {
+	nodes := s.GetTopologicalOrder()
+	result := make([]string, len(nodes))
+	for i, n := range nodes {
+		result[i] = n.Name
+	}
+	return result
+}
+
+func ancestorsOf(s *stack.Stack, trunk, branch string) []string {
+	path := s.FindPath(branch)
+	var result []string
+	for _, n := range path {
+		if n.Name == trunk {
+			continue
+		}
+		result = append(result, n.Name)
+	}
+	return result
+}
+
+func descendantsDFS(s *stack.Stack, branch string) []string {
+	node := s.GetNode(branch)
+	if node == nil {
+		return nil
+	}
+	var result []string
+	for _, child := range node.SortedChildren() {
+		result = append(result, child.Name)
+		result = append(result, descendantsDFS(s, child.Name)...)
+	}
+	return result
+}
+
+// --- gs_modify ---
+
+var modifyTool = mcp.NewTool("gs_modify",
+	mcp.WithDescription("Amend the current branch's last commit (or create a new commit) and restack children. Stage changes with --all before committing if needed."),
+	mcp.WithString("message",
+		mcp.Description("Commit message (for amend or new commit)"),
+	),
+	mcp.WithBoolean("new_commit",
+		mcp.Description("Create a new commit instead of amending (default: false)"),
+	),
+	mcp.WithBoolean("all",
+		mcp.Description("Stage all changes before committing (default: false)"),
+	),
+)
+
+type modifyResponse struct {
+	Branch          string   `json:"branch"`
+	Action          string   `json:"action"`
+	RestackedChildren []string `json:"restacked_children"`
+}
+
+func handleModify(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	message := req.GetString("message", "")
+	newCommit := req.GetBool("new_commit", false)
+	stageAll := req.GetBool("all", false)
+
+	state, err := loadRepoState()
+	if err != nil {
+		return errResult(err.Error()), nil
+	}
+
+	currentBranch := state.Stack.Current
+	node := state.Stack.GetNode(currentBranch)
+	if node == nil {
+		return errResult(fmt.Sprintf("branch '%s' is not tracked by gs", currentBranch)), nil
+	}
+
+	// Stage all if requested
+	if stageAll {
+		if _, err := state.Repo.RunGitCommand("add", "-A"); err != nil {
+			return errResult(fmt.Sprintf("failed to stage changes: %v", err)), nil
+		}
+	}
+
+	// Build git commit args
+	action := "amended"
+	args := []string{"commit"}
+	if newCommit {
+		action = "committed"
+	} else {
+		args = append(args, "--amend")
+	}
+	if message != "" {
+		args = append(args, "-m", message)
+	} else if !newCommit {
+		args = append(args, "--no-edit")
+	} else {
+		return errResult("message is required when creating a new commit"), nil
+	}
+
+	if _, err := state.Repo.RunGitCommand(args...); err != nil {
+		return errResult(fmt.Sprintf("failed to %s: %v", action, err)), nil
+	}
+
+	// Restack children
+	restackedChildren := []string{}
+	if len(node.Children) > 0 {
+		for _, child := range node.Children {
+			if err := state.Repo.CheckoutBranch(child.Name); err != nil {
+				continue
+			}
+			behind, err := state.Repo.IsBehind(child.Name, currentBranch)
+			if err != nil || !behind {
+				continue
+			}
+			parentRev := state.Metadata.GetParentRevision(child.Name)
+			if parentRev != "" {
+				err = state.Repo.RebaseOnto(child.Name, currentBranch, parentRev)
+			} else {
+				err = state.Repo.Rebase(child.Name, currentBranch)
+			}
+			if err == nil {
+				restackedChildren = append(restackedChildren, child.Name)
+				parentSHA, _ := state.Repo.GetBranchCommit(currentBranch)
+				state.Metadata.SetParentRevision(child.Name, parentSHA)
+			}
+		}
+		state.Metadata.Save(state.Repo.GetMetadataPath())
+		state.Repo.CheckoutBranch(currentBranch)
+	}
+
+	return jsonResult(modifyResponse{
+		Branch:            currentBranch,
+		Action:            action,
+		RestackedChildren: restackedChildren,
+	})
 }

@@ -563,3 +563,160 @@ func TestHandleRename_TrunkErrors(t *testing.T) {
 		t.Error("expected error when renaming trunk")
 	}
 }
+
+// --- gs_restack tests ---
+
+func TestHandleRestack_AlreadyUpToDate(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+
+	req := makeRequest("gs_restack", map[string]any{"scope": "only"})
+	result, err := handleRestack(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleRestack returned error: %v", err)
+	}
+	if result.IsError {
+		text := result.Content[0].(mcp.TextContent).Text
+		t.Fatalf("handleRestack returned tool error: %s", text)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp restackResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	// Branch was just created — should be up to date
+	if len(resp.Restacked) != 0 {
+		t.Errorf("expected 0 restacked, got %d", len(resp.Restacked))
+	}
+}
+
+func TestHandleRestack_NeedRebase(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+
+	// Go back to main and add a commit
+	exec.Command("git", "checkout", "main").Run()
+	os.WriteFile("main-change.txt", []byte("change"), 0644)
+	exec.Command("git", "add", "main-change.txt").Run()
+	exec.Command("git", "commit", "-m", "main change").Run()
+
+	// Now feat/auth is behind main
+	exec.Command("git", "checkout", "feat/auth").Run()
+
+	req := makeRequest("gs_restack", map[string]any{"scope": "only"})
+	result, err := handleRestack(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleRestack returned error: %v", err)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp restackResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if len(resp.Restacked) != 1 {
+		t.Errorf("expected 1 restacked, got %d", len(resp.Restacked))
+	}
+	if resp.Conflict != "" {
+		t.Errorf("unexpected conflict: %s", resp.Conflict)
+	}
+}
+
+func TestHandleRestack_UncommittedChangesError(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+
+	// Create uncommitted change
+	os.WriteFile("dirty.txt", []byte("dirty"), 0644)
+	exec.Command("git", "add", "dirty.txt").Run()
+
+	req := makeRequest("gs_restack", map[string]any{})
+	result, _ := handleRestack(context.Background(), req)
+	if !result.IsError {
+		t.Error("expected error with uncommitted changes")
+	}
+}
+
+// --- gs_modify tests ---
+
+func TestHandleModify_AmendWithMessage(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+	// Currently on feat/auth with one commit
+
+	req := makeRequest("gs_modify", map[string]any{"message": "updated commit"})
+	result, err := handleModify(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleModify returned error: %v", err)
+	}
+	if result.IsError {
+		text := result.Content[0].(mcp.TextContent).Text
+		t.Fatalf("handleModify returned tool error: %s", text)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp modifyResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if resp.Branch != "feat/auth" {
+		t.Errorf("expected branch 'feat/auth', got '%s'", resp.Branch)
+	}
+	if resp.Action != "amended" {
+		t.Errorf("expected action 'amended', got '%s'", resp.Action)
+	}
+
+	// Verify commit message changed
+	out, _ := exec.Command("git", "log", "-1", "--format=%s").Output()
+	msg := string(out[:len(out)-1])
+	if msg != "updated commit" {
+		t.Errorf("expected commit message 'updated commit', got '%s'", msg)
+	}
+}
+
+func TestHandleModify_NewCommit(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+
+	// Add a file to stage
+	os.WriteFile("extra.txt", []byte("extra"), 0644)
+	exec.Command("git", "add", "extra.txt").Run()
+
+	req := makeRequest("gs_modify", map[string]any{
+		"message":    "new commit on branch",
+		"new_commit": true,
+	})
+	result, err := handleModify(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleModify returned error: %v", err)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp modifyResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if resp.Action != "committed" {
+		t.Errorf("expected action 'committed', got '%s'", resp.Action)
+	}
+}
+
+func TestHandleModify_NewCommitRequiresMessage(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+
+	req := makeRequest("gs_modify", map[string]any{"new_commit": true})
+	result, _ := handleModify(context.Background(), req)
+	if !result.IsError {
+		t.Error("expected error when new_commit without message")
+	}
+}
