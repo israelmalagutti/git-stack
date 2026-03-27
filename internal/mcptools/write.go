@@ -19,6 +19,8 @@ func registerWriteTools(s *server.MCPServer) {
 	s.AddTool(renameTool, handleRename)
 	s.AddTool(restackTool, handleRestack)
 	s.AddTool(modifyTool, handleModify)
+	s.AddTool(moveTool, handleMove)
+	s.AddTool(foldTool, handleFold)
 }
 
 // --- gs_checkout ---
@@ -860,5 +862,169 @@ func handleModify(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 		Branch:            currentBranch,
 		Action:            action,
 		RestackedChildren: restackedChildren,
+	})
+}
+
+// --- gs_move ---
+
+var moveTool = mcp.NewTool("gs_move",
+	mcp.WithDescription("Move a branch to a new parent. Rebases the branch onto the new parent and restacks descendants."),
+	mcp.WithString("branch",
+		mcp.Description("Branch to move (defaults to current)"),
+	),
+	mcp.WithString("onto",
+		mcp.Required(),
+		mcp.Description("New parent branch"),
+	),
+)
+
+type moveResponse struct {
+	Branch    string `json:"branch"`
+	OldParent string `json:"old_parent"`
+	NewParent string `json:"new_parent"`
+}
+
+func handleMove(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	onto, err := req.RequireString("onto")
+	if err != nil {
+		return errResult("missing required parameter: onto"), nil
+	}
+
+	state, err := loadRepoState()
+	if err != nil {
+		return errResult(err.Error()), nil
+	}
+
+	branchName := req.GetString("branch", state.Stack.Current)
+
+	if branchName == state.Config.Trunk {
+		return errResult("cannot move trunk branch"), nil
+	}
+
+	node := state.Stack.GetNode(branchName)
+	if node == nil {
+		return errResult(fmt.Sprintf("branch '%s' is not tracked by gs", branchName)), nil
+	}
+
+	if !state.Repo.BranchExists(onto) {
+		return errResult(fmt.Sprintf("target branch '%s' does not exist", onto)), nil
+	}
+
+	if onto == branchName {
+		return errResult("cannot move a branch onto itself"), nil
+	}
+
+	// Check onto is not a descendant
+	for _, desc := range descendantsDFS(state.Stack, branchName) {
+		if desc == onto {
+			return errResult(fmt.Sprintf("cannot move '%s' onto its descendant '%s'", branchName, onto)), nil
+		}
+	}
+
+	oldParent := ""
+	if node.Parent != nil {
+		oldParent = node.Parent.Name
+	}
+
+	// Update metadata
+	if err := state.Metadata.UpdateParent(branchName, onto); err != nil {
+		return errResult(fmt.Sprintf("failed to update metadata: %v", err)), nil
+	}
+
+	// Checkout and rebase
+	if err := state.Repo.CheckoutBranch(branchName); err != nil {
+		return errResult(fmt.Sprintf("failed to checkout: %v", err)), nil
+	}
+
+	if err := state.Repo.Rebase(branchName, onto); err != nil {
+		return errResult(fmt.Sprintf("rebase conflict moving '%s' onto '%s'", branchName, onto)), nil
+	}
+
+	// Update parent revision
+	ontoSHA, _ := state.Repo.GetBranchCommit(onto)
+	state.Metadata.SetParentRevision(branchName, ontoSHA)
+	state.Metadata.Save(state.Repo.GetMetadataPath())
+
+	return jsonResult(moveResponse{
+		Branch:    branchName,
+		OldParent: oldParent,
+		NewParent: onto,
+	})
+}
+
+// --- gs_fold ---
+
+var foldTool = mcp.NewTool("gs_fold",
+	mcp.WithDescription("Fold the current branch into its parent using squash merge. Children are reparented to the parent. The branch is deleted unless keep is true."),
+	mcp.WithBoolean("keep",
+		mcp.Description("Keep the branch after folding (default: false)"),
+	),
+)
+
+type foldResponse struct {
+	Folded     string   `json:"folded"`
+	Into       string   `json:"into"`
+	Kept       bool     `json:"kept"`
+	Reparented []string `json:"reparented_children"`
+}
+
+func handleFold(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	keep := req.GetBool("keep", false)
+
+	state, err := loadRepoState()
+	if err != nil {
+		return errResult(err.Error()), nil
+	}
+
+	currentBranch := state.Stack.Current
+	node := state.Stack.GetNode(currentBranch)
+	if node == nil {
+		return errResult(fmt.Sprintf("branch '%s' is not tracked by gs", currentBranch)), nil
+	}
+
+	if node.IsTrunk {
+		return errResult("cannot fold trunk branch"), nil
+	}
+	if node.Parent == nil {
+		return errResult("branch has no parent to fold into"), nil
+	}
+
+	parentBranch := node.Parent.Name
+
+	// Checkout parent and squash merge
+	if err := state.Repo.CheckoutBranch(parentBranch); err != nil {
+		return errResult(fmt.Sprintf("failed to checkout parent: %v", err)), nil
+	}
+
+	if _, err := state.Repo.RunGitCommand("merge", "--squash", currentBranch); err != nil {
+		return errResult(fmt.Sprintf("failed to squash merge: %v", err)), nil
+	}
+
+	commitMsg := fmt.Sprintf("Fold %s into %s", currentBranch, parentBranch)
+	if _, err := state.Repo.RunGitCommand("commit", "-m", commitMsg); err != nil {
+		return errResult(fmt.Sprintf("failed to commit fold: %v", err)), nil
+	}
+
+	// Reparent children
+	reparented := make([]string, 0, len(node.Children))
+	for _, child := range node.Children {
+		if err := state.Metadata.UpdateParent(child.Name, parentBranch); err == nil {
+			reparented = append(reparented, child.Name)
+		}
+	}
+
+	if !keep {
+		// Delete the folded branch
+		state.Repo.RunGitCommand("branch", "-D", currentBranch)
+		state.Metadata.UntrackBranch(currentBranch)
+	}
+
+	state.Metadata.Save(state.Repo.GetMetadataPath())
+
+	return jsonResult(foldResponse{
+		Folded:     currentBranch,
+		Into:       parentBranch,
+		Kept:       keep,
+		Reparented: reparented,
 	})
 }

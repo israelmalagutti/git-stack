@@ -720,3 +720,167 @@ func TestHandleModify_NewCommitRequiresMessage(t *testing.T) {
 		t.Error("expected error when new_commit without message")
 	}
 }
+
+// --- gs_move tests ---
+
+func TestHandleMove_Success(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+	exec.Command("git", "checkout", "main").Run()
+	addTrackedBranch(t, "feat/ui", "main")
+	// Move feat/ui onto feat/auth
+
+	req := makeRequest("gs_move", map[string]any{"branch": "feat/ui", "onto": "feat/auth"})
+	result, err := handleMove(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleMove returned error: %v", err)
+	}
+	if result.IsError {
+		text := result.Content[0].(mcp.TextContent).Text
+		t.Fatalf("handleMove returned tool error: %s", text)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp moveResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if resp.Branch != "feat/ui" {
+		t.Errorf("expected branch 'feat/ui', got '%s'", resp.Branch)
+	}
+	if resp.OldParent != "main" {
+		t.Errorf("expected old parent 'main', got '%s'", resp.OldParent)
+	}
+	if resp.NewParent != "feat/auth" {
+		t.Errorf("expected new parent 'feat/auth', got '%s'", resp.NewParent)
+	}
+}
+
+func TestHandleMove_OntoSelfErrors(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+
+	req := makeRequest("gs_move", map[string]any{"onto": "feat/auth"})
+	result, _ := handleMove(context.Background(), req)
+	if !result.IsError {
+		t.Error("expected error when moving onto self")
+	}
+}
+
+func TestHandleMove_TrunkErrors(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	req := makeRequest("gs_move", map[string]any{"branch": "main", "onto": "feat/x"})
+	result, _ := handleMove(context.Background(), req)
+	if !result.IsError {
+		t.Error("expected error when moving trunk")
+	}
+}
+
+// --- gs_fold tests ---
+
+func TestHandleFold_Success(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+	// Currently on feat/auth
+
+	req := makeRequest("gs_fold", map[string]any{})
+	result, err := handleFold(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleFold returned error: %v", err)
+	}
+	if result.IsError {
+		text := result.Content[0].(mcp.TextContent).Text
+		t.Fatalf("handleFold returned tool error: %s", text)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp foldResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if resp.Folded != "feat/auth" {
+		t.Errorf("expected folded 'feat/auth', got '%s'", resp.Folded)
+	}
+	if resp.Into != "main" {
+		t.Errorf("expected into 'main', got '%s'", resp.Into)
+	}
+	if resp.Kept {
+		t.Error("expected kept=false by default")
+	}
+
+	// Verify branch was deleted
+	out, _ := exec.Command("git", "branch", "--list", "feat/auth").Output()
+	if len(out) > 0 {
+		t.Error("feat/auth should have been deleted")
+	}
+}
+
+func TestHandleFold_WithKeep(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+
+	req := makeRequest("gs_fold", map[string]any{"keep": true})
+	result, err := handleFold(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleFold returned error: %v", err)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp foldResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if !resp.Kept {
+		t.Error("expected kept=true")
+	}
+
+	// Verify branch still exists
+	out, _ := exec.Command("git", "branch", "--list", "feat/auth").Output()
+	if len(out) == 0 {
+		t.Error("feat/auth should still exist with --keep")
+	}
+}
+
+func TestHandleFold_TrunkErrors(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	req := makeRequest("gs_fold", map[string]any{})
+	result, _ := handleFold(context.Background(), req)
+	if !result.IsError {
+		t.Error("expected error when folding trunk")
+	}
+}
+
+func TestHandleFold_WithChildren(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+	addTrackedBranch(t, "feat/auth-tests", "feat/auth")
+	exec.Command("git", "checkout", "feat/auth").Run()
+
+	req := makeRequest("gs_fold", map[string]any{})
+	result, err := handleFold(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleFold returned error: %v", err)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp foldResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if len(resp.Reparented) != 1 {
+		t.Fatalf("expected 1 reparented child, got %d", len(resp.Reparented))
+	}
+	if resp.Reparented[0] != "feat/auth-tests" {
+		t.Errorf("expected reparented child 'feat/auth-tests', got '%s'", resp.Reparented[0])
+	}
+}
