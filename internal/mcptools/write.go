@@ -658,12 +658,26 @@ func handleRename(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 // --- gs_restack ---
 
 var restackTool = mcp.NewTool("gs_restack",
-	mcp.WithDescription("Rebase branches to maintain parent-child relationships. Rebases each branch onto its parent using precise --onto when possible. Returns the list of restacked branches or conflict info."),
+	mcp.WithDescription(`Rebase branches to align them with their declared parents in the stack. This is the key operation for keeping a stack consistent after modifications.
+
+PREREQUISITE: Working tree must be clean (no uncommitted changes). Commit or stash changes first.
+
+Scope controls which branches are restacked:
+- "only": just the specified branch onto its parent
+- "upstack": the branch and all its descendants (children, grandchildren, etc.)
+- "downstack": ancestors of the branch (between trunk and the branch)
+- "all" (default): the entire stack
+
+If a rebase conflict occurs, the tool stops and returns conflict info. Resolve conflicts in the working tree using git commands (edit files, git add, git rebase --continue), then call gs_restack again.
+
+Common triggers: after gs_modify, gs_move, gs_delete, or pulling upstream changes to trunk.
+
+Returns: {restacked[], skipped[], conflict?}`),
 	mcp.WithString("branch",
-		mcp.Description("Branch to start from (defaults to current)"),
+		mcp.Description("Branch to start from (defaults to current branch)"),
 	),
 	mcp.WithString("scope",
-		mcp.Description("Scope of restacking"),
+		mcp.Description("Scope: only (single branch), upstack (branch + descendants), downstack (ancestors to trunk), all (entire stack, default)"),
 		mcp.Enum("only", "upstack", "downstack", "all"),
 	),
 )
@@ -686,7 +700,7 @@ func handleRestack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 		return errResult(fmt.Sprintf("failed to check working tree: %v", err)), nil
 	}
 	if dirty {
-		return errResult("uncommitted changes — commit or stash before restacking"), nil
+		return errResult("uncommitted changes — commit changes with gs_modify (with stage_all=true), or stash them before calling gs_restack"), nil
 	}
 
 	branchName := req.GetString("branch", state.Stack.Current)
@@ -742,7 +756,7 @@ func handleRestack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 			return jsonResult(restackResponse{
 				Restacked: restacked,
 				Skipped:   skipped,
-				Conflict:  fmt.Sprintf("conflict restacking '%s' onto '%s' — resolve conflicts, then run gs continue", branch, parent),
+				Conflict:  fmt.Sprintf("conflict restacking '%s' onto '%s' — resolve conflicts in the working tree (edit files, git add, git rebase --continue), then call gs_restack again", branch, parent),
 			})
 		}
 
@@ -826,15 +840,26 @@ func descendantsDFS(s *stack.Stack, branch string) []string {
 // --- gs_modify ---
 
 var modifyTool = mcp.NewTool("gs_modify",
-	mcp.WithDescription("Amend the current branch's last commit (or create a new commit) and restack children. Stage changes with --all before committing if needed."),
+	mcp.WithDescription(`Amend the last commit on the current branch (or create a new commit) and automatically restack direct children.
+
+Parameters:
+- message: commit message (required for new commits, optional for amends — omit to keep existing message)
+- new_commit: if true, creates a new commit instead of amending (default: false)
+- stage_all: if true, stages all working tree changes before committing (default: false)
+
+Typical workflow: make code changes, then call gs_modify with stage_all=true and a message to amend them into the current branch.
+
+NOTE: Only direct children are restacked. If the stack is deeper, call gs_restack with scope "upstack" afterward to propagate changes through grandchildren and beyond.
+
+Returns: {branch, action ("amended" or "committed"), restacked_children[]}`),
 	mcp.WithString("message",
-		mcp.Description("Commit message (for amend or new commit)"),
+		mcp.Description("Commit message (required for new commits, optional for amends — omit to keep existing message)"),
 	),
 	mcp.WithBoolean("new_commit",
 		mcp.Description("Create a new commit instead of amending (default: false)"),
 	),
-	mcp.WithBoolean("all",
-		mcp.Description("Stage all changes before committing (default: false)"),
+	mcp.WithBoolean("stage_all",
+		mcp.Description("Stage all working tree changes (git add -A) before committing (default: false)"),
 	),
 )
 
@@ -847,7 +872,7 @@ type modifyResponse struct {
 func handleModify(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	message := req.GetString("message", "")
 	newCommit := req.GetBool("new_commit", false)
-	stageAll := req.GetBool("all", false)
+	stageAll := req.GetBool("stage_all", false)
 
 	state, err := loadRepoState()
 	if err != nil {
@@ -924,13 +949,19 @@ func handleModify(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 // --- gs_move ---
 
 var moveTool = mcp.NewTool("gs_move",
-	mcp.WithDescription("Move a branch to a new parent. Rebases the branch onto the new parent and restacks descendants."),
+	mcp.WithDescription(`Move a branch to a new parent, rebasing it onto the target branch. This changes where the branch sits in the stack tree.
+
+The branch is rebased onto the new parent. Descendants of the moved branch are NOT automatically restacked — call gs_restack with the moved branch and scope "upstack" afterward to propagate the move through the subtree.
+
+Cannot move a branch onto itself or onto one of its own descendants (would create a cycle). Cannot move trunk.
+
+Returns: {branch, old_parent, new_parent}`),
 	mcp.WithString("branch",
-		mcp.Description("Branch to move (defaults to current)"),
+		mcp.Description("Branch to move (defaults to current branch)"),
 	),
 	mcp.WithString("onto",
 		mcp.Required(),
-		mcp.Description("New parent branch"),
+		mcp.Description("New parent branch to rebase onto"),
 	),
 )
 
@@ -1011,9 +1042,17 @@ func handleMove(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 // --- gs_fold ---
 
 var foldTool = mcp.NewTool("gs_fold",
-	mcp.WithDescription("Fold the current branch into its parent using squash merge. Children are reparented to the parent. The branch is deleted unless keep is true."),
+	mcp.WithDescription(`Squash-merge the current branch into its parent, combining all commits into a single commit on the parent. The branch is deleted afterward unless keep=true.
+
+Children of the folded branch are reparented to the parent. After folding, call gs_restack with scope "upstack" on the parent to rebase reparented children onto the updated parent.
+
+Use this when a branch's changes are complete and you want to collapse them into the parent. This is destructive — individual commit history on the folded branch is lost.
+
+Cannot fold the trunk branch.
+
+Returns: {folded, into, kept, reparented_children[]}`),
 	mcp.WithBoolean("keep",
-		mcp.Description("Keep the branch after folding (default: false)"),
+		mcp.Description("Keep the branch after folding instead of deleting it (default: false)"),
 	),
 )
 
