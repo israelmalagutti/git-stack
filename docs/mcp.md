@@ -123,24 +123,29 @@ CLI commands use `survey/v2` for interactive prompts (branch selection, confirma
 ### Read-only tools
 
 #### `gs_status`
-Get the full stack state.
+**Start here.** Returns the full stack state as structured JSON. Use this as your first call to orient yourself. Includes a summary of which branches need restacking.
 - **Parameters**: none
-- **Returns**: trunk name, current branch, list of all branches with parents/children/depth
+- **Returns**: `{trunk, current_branch, initialized, summary: {total_branches, needs_restack[]}, branches[]}`
+- **When to use**: First call to understand the stack. Prefer over `gs_log` unless you need commit history.
 
 #### `gs_branch_info`
-Get detailed info about one branch.
+Get detailed info about a single branch including its commits and whether it needs restacking.
 - **Parameters**: `branch` (string, required)
-- **Returns**: branch metadata, commits, parent, children, needs-restack status
+- **Returns**: `{name, parent, children[], commits[], depth, is_current, is_trunk, needs_restack}`
+- **When to use**: After `gs_status` to inspect a specific branch. If `needs_restack` is true, call `gs_restack` with scope `"only"`.
 
 #### `gs_log`
-Get the stack tree as structured data.
-- **Parameters**: `include_commits` (bool, optional)
-- **Returns**: ordered tree structure with optional commit lists
+Get the stack tree with optional commit history for every branch. Superset of `gs_status`.
+- **Parameters**: `include_commits` (bool, optional — default: false)
+- **Returns**: `{trunk, current_branch, branches[]}`
+- **When to use**: When you need to see what commits each branch contains (e.g., before a large restack). Without `include_commits`, response is nearly identical to `gs_status`.
 
 #### `gs_diff`
-Get the diff for a branch relative to its parent.
+Get the unified diff for a branch compared to its parent. Shows only changes introduced by this branch.
 - **Parameters**: `branch` (string, optional — defaults to current)
-- **Returns**: unified diff text
+- **Returns**: `{branch, parent, diff}`
+- **When to use**: Before deciding to modify, fold, or submit a branch. Cannot diff trunk.
+- **Next steps**: `gs_modify` to amend, `gs_fold` to squash into parent, `gs_create` to add a follow-up branch.
 
 ### Navigation tools
 

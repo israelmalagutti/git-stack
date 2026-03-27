@@ -19,15 +19,27 @@ func registerReadTools(s *server.MCPServer) {
 // --- gs_status ---
 
 var statusTool = mcp.NewTool("gs_status",
-	mcp.WithDescription("Get the full stack state: all branches, their parents, children, current branch, and trunk. Returns structured JSON representing the entire stack tree."),
+	mcp.WithDescription(`Start here. Returns the full stack state as structured JSON: all tracked branches, their parent-child relationships, current branch, and trunk name.
+
+Use this as your first call to orient yourself in a repository. It gives you the complete picture of the stack tree in one call.
+
+Prefer gs_status over gs_log unless you specifically need commit history on every branch. For detailed info on a single branch (including commits and needs-restack status), follow up with gs_branch_info.
+
+Returns: {trunk, current_branch, initialized, summary: {total_branches, needs_restack[]}, branches: [{name, parent, children[], commit_sha, depth, is_current, is_trunk}]}`),
 	mcp.WithReadOnlyHintAnnotation(true),
 )
 
+type statusSummary struct {
+	TotalBranches int      `json:"total_branches"`
+	NeedsRestack  []string `json:"needs_restack"`
+}
+
 type statusResponse struct {
-	Trunk         string       `json:"trunk"`
-	CurrentBranch string       `json:"current_branch"`
-	Initialized   bool         `json:"initialized"`
-	Branches      []branchJSON `json:"branches"`
+	Trunk         string        `json:"trunk"`
+	CurrentBranch string        `json:"current_branch"`
+	Initialized   bool          `json:"initialized"`
+	Summary       statusSummary `json:"summary"`
+	Branches      []branchJSON  `json:"branches"`
 }
 
 func handleStatus(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -49,11 +61,26 @@ func handleStatus(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 		branches = append(branches, nodeToBranchJSON(state.Stack, node))
 	}
 
+	// Compute needs-restack summary
+	needsRestack := []string{}
+	for _, node := range state.Stack.GetTopologicalOrder() {
+		if node.Parent != nil {
+			behind, err := state.Repo.IsBehind(node.Name, node.Parent.Name)
+			if err == nil && behind {
+				needsRestack = append(needsRestack, node.Name)
+			}
+		}
+	}
+
 	resp := statusResponse{
 		Trunk:         state.Stack.TrunkName,
 		CurrentBranch: state.Stack.Current,
 		Initialized:   true,
-		Branches:      branches,
+		Summary: statusSummary{
+			TotalBranches: len(branches),
+			NeedsRestack:  needsRestack,
+		},
+		Branches: branches,
 	}
 
 	return jsonResult(resp)
@@ -62,7 +89,13 @@ func handleStatus(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 // --- gs_branch_info ---
 
 var branchInfoTool = mcp.NewTool("gs_branch_info",
-	mcp.WithDescription("Get detailed information about a specific branch: metadata, commits unique to this branch, parent, children, depth, and whether it needs restacking."),
+	mcp.WithDescription(`Get detailed information about a single branch: its commits, parent, children, stack depth, and whether it needs restacking.
+
+Use this after gs_status when you need to inspect a specific branch more closely — for example, to see its commits before deciding whether to fold or modify it, or to check if it needs restacking.
+
+If needs_restack is true, the branch has diverged from its parent and you should call gs_restack with scope "only" on that branch.
+
+Returns: {name, parent, children[], commit_sha, commits: [{sha, message}], depth, is_current, is_trunk, needs_restack}`),
 	mcp.WithReadOnlyHintAnnotation(true),
 	mcp.WithString("branch",
 		mcp.Required(),
@@ -100,7 +133,7 @@ func handleBranchInfo(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallTo
 
 	node := state.Stack.GetNode(branchName)
 	if node == nil {
-		return errResult(fmt.Sprintf("branch '%s' is not tracked by gs", branchName)), nil
+		return errResult(fmt.Sprintf("branch '%s' is not tracked by gs — call gs_status to see all tracked branches, or use gs_track to start tracking it", branchName)), nil
 	}
 
 	// Get commits unique to this branch
@@ -158,7 +191,13 @@ func commitToJSON(c stack.Commit) commitJSON {
 // --- gs_log ---
 
 var logTool = mcp.NewTool("gs_log",
-	mcp.WithDescription("Get the stack tree as structured data. This is the machine-readable equivalent of 'gs log'. Returns branches in topological order with their relationships."),
+	mcp.WithDescription(`Get the stack tree with optional commit history for every branch. This is a superset of gs_status — use it when you need to see what commits each branch contains.
+
+Call with include_commits=true to get the full commit list per branch. Without it, the response is nearly identical to gs_status.
+
+Prefer gs_status for a quick overview. Use gs_log with include_commits=true when you need to understand the content of the entire stack (e.g., before a large restack or to find which branch contains a specific change).
+
+Returns: {trunk, current_branch, branches: [{name, parent, children[], commit_sha, depth, is_current, is_trunk, commits?: [{sha, message}]}]}`),
 	mcp.WithReadOnlyHintAnnotation(true),
 	mcp.WithBoolean("include_commits",
 		mcp.Description("Whether to include commit history for each branch (default: false)"),
@@ -250,7 +289,15 @@ func handleLog(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResul
 // --- gs_diff ---
 
 var diffTool = mcp.NewTool("gs_diff",
-	mcp.WithDescription("Get the unified diff for a branch relative to its parent. Shows only the changes unique to this branch."),
+	mcp.WithDescription(`Get the unified diff for a branch compared to its parent branch. Shows only the changes introduced by this branch, not inherited changes.
+
+Use this to review what a branch actually changes before deciding to modify, fold, or submit it. Defaults to the current branch if no branch name is provided.
+
+Cannot diff the trunk branch (it has no parent). For large branches with many commits, the diff may be very long — consider using gs_branch_info first to check the commit count.
+
+After reviewing, common next steps: gs_modify to amend, gs_fold to squash into parent, or gs_create to add a follow-up branch.
+
+Returns: {branch, parent, diff} where diff is a standard unified diff string.`),
 	mcp.WithReadOnlyHintAnnotation(true),
 	mcp.WithString("branch",
 		mcp.Description("Branch to diff (defaults to current branch if omitted)"),
@@ -276,11 +323,11 @@ func handleDiff(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 
 	node := state.Stack.GetNode(branchName)
 	if node == nil {
-		return errResult(fmt.Sprintf("branch '%s' is not tracked by gs", branchName)), nil
+		return errResult(fmt.Sprintf("branch '%s' is not tracked by gs — call gs_status to see all tracked branches, or use gs_track to start tracking it", branchName)), nil
 	}
 
 	if node.Parent == nil {
-		return errResult(fmt.Sprintf("branch '%s' is trunk and has no parent to diff against", branchName)), nil
+		return errResult(fmt.Sprintf("branch '%s' is trunk and has no parent to diff against — use gs_diff on a non-trunk branch instead", branchName)), nil
 	}
 
 	diff, err := state.Repo.RunGitCommand("diff", node.Parent.Name+"..."+node.Name)
