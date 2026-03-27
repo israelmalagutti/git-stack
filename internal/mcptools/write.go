@@ -14,6 +14,9 @@ func registerWriteTools(s *server.MCPServer) {
 	s.AddTool(navigateTool, handleNavigate)
 	s.AddTool(createTool, handleCreate)
 	s.AddTool(deleteTool, handleDelete)
+	s.AddTool(trackTool, handleTrack)
+	s.AddTool(untrackTool, handleUntrack)
+	s.AddTool(renameTool, handleRename)
 }
 
 // --- gs_checkout ---
@@ -429,4 +432,165 @@ func handleDelete(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 		NewParent:          parentBranch,
 		CheckedOut:         checkedOut,
 	})
+}
+
+// --- gs_track ---
+
+var trackTool = mcp.NewTool("gs_track",
+	mcp.WithDescription("Start tracking an existing git branch in the stack by specifying its parent."),
+	mcp.WithString("branch",
+		mcp.Required(),
+		mcp.Description("Name of the existing branch to track"),
+	),
+	mcp.WithString("parent",
+		mcp.Required(),
+		mcp.Description("Name of the parent branch"),
+	),
+)
+
+type trackResponse struct {
+	Branch string `json:"branch"`
+	Parent string `json:"parent"`
+}
+
+func handleTrack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	branchName, err := req.RequireString("branch")
+	if err != nil {
+		return errResult("missing required parameter: branch"), nil
+	}
+	parentName, err := req.RequireString("parent")
+	if err != nil {
+		return errResult("missing required parameter: parent"), nil
+	}
+
+	state, err := loadRepoState()
+	if err != nil {
+		return errResult(err.Error()), nil
+	}
+
+	if !state.Repo.BranchExists(branchName) {
+		return errResult(fmt.Sprintf("branch '%s' does not exist", branchName)), nil
+	}
+	if !state.Repo.BranchExists(parentName) {
+		return errResult(fmt.Sprintf("parent branch '%s' does not exist", parentName)), nil
+	}
+	if state.Metadata.IsTracked(branchName) {
+		return errResult(fmt.Sprintf("branch '%s' is already tracked", branchName)), nil
+	}
+
+	parentSHA, _ := state.Repo.GetBranchCommit(parentName)
+	state.Metadata.TrackBranch(branchName, parentName, parentSHA)
+	if err := state.Metadata.Save(state.Repo.GetMetadataPath()); err != nil {
+		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
+	}
+
+	return jsonResult(trackResponse{Branch: branchName, Parent: parentName})
+}
+
+// --- gs_untrack ---
+
+var untrackTool = mcp.NewTool("gs_untrack",
+	mcp.WithDescription("Stop tracking a branch in the stack. The git branch is not deleted."),
+	mcp.WithString("branch",
+		mcp.Required(),
+		mcp.Description("Name of the branch to untrack"),
+	),
+)
+
+type untrackResponse struct {
+	Branch string `json:"branch"`
+}
+
+func handleUntrack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	branchName, err := req.RequireString("branch")
+	if err != nil {
+		return errResult("missing required parameter: branch"), nil
+	}
+
+	state, err := loadRepoState()
+	if err != nil {
+		return errResult(err.Error()), nil
+	}
+
+	if branchName == state.Config.Trunk {
+		return errResult("cannot untrack trunk branch"), nil
+	}
+	if !state.Metadata.IsTracked(branchName) {
+		return errResult(fmt.Sprintf("branch '%s' is not tracked", branchName)), nil
+	}
+
+	state.Metadata.UntrackBranch(branchName)
+	if err := state.Metadata.Save(state.Repo.GetMetadataPath()); err != nil {
+		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
+	}
+
+	return jsonResult(untrackResponse{Branch: branchName})
+}
+
+// --- gs_rename ---
+
+var renameTool = mcp.NewTool("gs_rename",
+	mcp.WithDescription("Rename the current branch and update gs tracking metadata."),
+	mcp.WithString("new_name",
+		mcp.Required(),
+		mcp.Description("New name for the current branch"),
+	),
+)
+
+type renameResponse struct {
+	OldName string `json:"old_name"`
+	NewName string `json:"new_name"`
+}
+
+func handleRename(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	newName, err := req.RequireString("new_name")
+	if err != nil {
+		return errResult("missing required parameter: new_name"), nil
+	}
+
+	state, err := loadRepoState()
+	if err != nil {
+		return errResult(err.Error()), nil
+	}
+
+	currentBranch := state.Stack.Current
+
+	if currentBranch == state.Config.Trunk {
+		return errResult("cannot rename trunk branch"), nil
+	}
+	if newName == currentBranch {
+		return errResult(fmt.Sprintf("branch is already named '%s'", newName)), nil
+	}
+	if state.Repo.BranchExists(newName) {
+		return errResult(fmt.Sprintf("branch '%s' already exists", newName)), nil
+	}
+
+	// Rename git branch
+	if _, err := state.Repo.RunGitCommand("branch", "-m", currentBranch, newName); err != nil {
+		return errResult(fmt.Sprintf("failed to rename branch: %v", err)), nil
+	}
+
+	// Update metadata
+	if state.Metadata.IsTracked(currentBranch) {
+		parent, _ := state.Metadata.GetParent(currentBranch)
+		children := state.Metadata.GetChildren(currentBranch)
+		existingParentRev := state.Metadata.GetParentRevision(currentBranch)
+
+		state.Metadata.UntrackBranch(currentBranch)
+		state.Metadata.TrackBranch(newName, parent, existingParentRev)
+
+		// Update children to point to new parent name
+		for _, child := range children {
+			childParentRev := state.Metadata.GetParentRevision(child)
+			state.Metadata.TrackBranch(child, newName, childParentRev)
+		}
+
+		if err := state.Metadata.Save(state.Repo.GetMetadataPath()); err != nil {
+			// Rollback git rename
+			state.Repo.RunGitCommand("branch", "-m", newName, currentBranch)
+			return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
+		}
+	}
+
+	return jsonResult(renameResponse{OldName: currentBranch, NewName: newName})
 }

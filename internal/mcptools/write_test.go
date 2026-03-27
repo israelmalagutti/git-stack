@@ -400,3 +400,166 @@ func TestHandleDelete_TrunkErrors(t *testing.T) {
 		t.Error("expected error when deleting trunk")
 	}
 }
+
+// --- gs_track tests ---
+
+func TestHandleTrack_ExistingBranch(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Create a git branch without tracking it
+	exec.Command("git", "checkout", "-b", "untracked").Run()
+	os.WriteFile("untracked.txt", []byte("x"), 0644)
+	exec.Command("git", "add", "untracked.txt").Run()
+	exec.Command("git", "commit", "-m", "untracked commit").Run()
+	exec.Command("git", "checkout", "main").Run()
+
+	req := makeRequest("gs_track", map[string]any{"branch": "untracked", "parent": "main"})
+	result, err := handleTrack(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleTrack returned error: %v", err)
+	}
+	if result.IsError {
+		text := result.Content[0].(mcp.TextContent).Text
+		t.Fatalf("handleTrack returned tool error: %s", text)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp trackResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if resp.Branch != "untracked" {
+		t.Errorf("expected branch 'untracked', got '%s'", resp.Branch)
+	}
+	if resp.Parent != "main" {
+		t.Errorf("expected parent 'main', got '%s'", resp.Parent)
+	}
+}
+
+func TestHandleTrack_AlreadyTracked(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/tracked", "main")
+
+	req := makeRequest("gs_track", map[string]any{"branch": "feat/tracked", "parent": "main"})
+	result, _ := handleTrack(context.Background(), req)
+	if !result.IsError {
+		t.Error("expected error for already tracked branch")
+	}
+}
+
+// --- gs_untrack tests ---
+
+func TestHandleUntrack_TrackedBranch(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/to-untrack", "main")
+
+	req := makeRequest("gs_untrack", map[string]any{"branch": "feat/to-untrack"})
+	result, err := handleUntrack(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleUntrack returned error: %v", err)
+	}
+	if result.IsError {
+		t.Fatal("handleUntrack returned tool error")
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp untrackResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if resp.Branch != "feat/to-untrack" {
+		t.Errorf("expected branch 'feat/to-untrack', got '%s'", resp.Branch)
+	}
+
+	// Verify branch still exists in git but not in gs status
+	statusReq := mcp.CallToolRequest{}
+	statusResult, _ := handleStatus(context.Background(), statusReq)
+	statusText := statusResult.Content[0].(mcp.TextContent).Text
+	var statusResp statusResponse
+	json.Unmarshal([]byte(statusText), &statusResp)
+
+	for _, b := range statusResp.Branches {
+		if b.Name == "feat/to-untrack" {
+			t.Error("untracked branch should not appear in status")
+		}
+	}
+}
+
+func TestHandleUntrack_TrunkErrors(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	req := makeRequest("gs_untrack", map[string]any{"branch": "main"})
+	result, _ := handleUntrack(context.Background(), req)
+	if !result.IsError {
+		t.Error("expected error when untracking trunk")
+	}
+}
+
+// --- gs_rename tests ---
+
+func TestHandleRename_Success(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/old-name", "main")
+	// Currently on feat/old-name
+
+	req := makeRequest("gs_rename", map[string]any{"new_name": "feat/new-name"})
+	result, err := handleRename(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleRename returned error: %v", err)
+	}
+	if result.IsError {
+		text := result.Content[0].(mcp.TextContent).Text
+		t.Fatalf("handleRename returned tool error: %s", text)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp renameResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if resp.OldName != "feat/old-name" {
+		t.Errorf("expected old name 'feat/old-name', got '%s'", resp.OldName)
+	}
+	if resp.NewName != "feat/new-name" {
+		t.Errorf("expected new name 'feat/new-name', got '%s'", resp.NewName)
+	}
+
+	// Verify git branch was renamed
+	out, _ := exec.Command("git", "branch", "--show-current").Output()
+	current := string(out[:len(out)-1])
+	if current != "feat/new-name" {
+		t.Errorf("expected current branch 'feat/new-name', got '%s'", current)
+	}
+}
+
+func TestHandleRename_DuplicateName(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/a", "main")
+	exec.Command("git", "checkout", "main").Run()
+	addTrackedBranch(t, "feat/b", "main")
+	// Currently on feat/b
+
+	req := makeRequest("gs_rename", map[string]any{"new_name": "feat/a"})
+	result, _ := handleRename(context.Background(), req)
+	if !result.IsError {
+		t.Error("expected error for duplicate name")
+	}
+}
+
+func TestHandleRename_TrunkErrors(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	req := makeRequest("gs_rename", map[string]any{"new_name": "new-main"})
+	result, _ := handleRename(context.Background(), req)
+	if !result.IsError {
+		t.Error("expected error when renaming trunk")
+	}
+}
