@@ -7,6 +7,8 @@
 ## Features
 
 - [MCP Server](./mcp.md) — Model Context Protocol server for AI agent integration (`gs mcp`)
+- [Branch Metadata Sync](./branch-metadata-sync.md) — How gs shares stack structure across developers via custom git refs
+- [Branch Metadata Sync Plan](./branch-metadata-sync-plan.md) — Phased implementation plan with commit-level breakdown
 
 ## Subjects
 
