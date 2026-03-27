@@ -57,7 +57,7 @@ func TestSplitByFileModeNoMatch(t *testing.T) {
 	defer repo.cleanup()
 
 	repo.createBranch(t, "feat-split-nomatch", "main")
-	repo.repo.CheckoutBranch("feat-split-nomatch")
+	_ = repo.repo.CheckoutBranch("feat-split-nomatch")
 	repo.commitFile(t, "match.txt", "data", "match commit")
 
 	err := splitByFileMode(repo.repo, repo.cfg, repo.metadata, "feat-split-nomatch", "main", "feat-split-base", []string{"nope*.txt"})

@@ -14,7 +14,7 @@ func TestSplitByCommitModeSelectionErrors(t *testing.T) {
 	defer repo.cleanup()
 
 	repo.createBranch(t, "feat-split-errors", "main")
-	repo.repo.CheckoutBranch("feat-split-errors")
+	_ = repo.repo.CheckoutBranch("feat-split-errors")
 	repo.commitFile(t, "a.txt", "a", "commit a")
 	repo.commitFile(t, "b.txt", "b", "commit b")
 
@@ -79,7 +79,7 @@ func TestRunSplitPromptCommitMode(t *testing.T) {
 	defer repo.cleanup()
 
 	repo.createBranch(t, "feat-split-prompt", "main")
-	repo.repo.CheckoutBranch("feat-split-prompt")
+	_ = repo.repo.CheckoutBranch("feat-split-prompt")
 	repo.commitFile(t, "a.txt", "a", "commit a")
 	repo.commitFile(t, "b.txt", "b", "commit b")
 

@@ -762,7 +762,7 @@ func handleRestack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 
 		// Update parent revision
 		parentSHA, _ := state.Repo.GetBranchCommit(parent)
-		state.Metadata.SetParentRevision(branch, parentSHA)
+		_ = state.Metadata.SetParentRevision(branch, parentSHA)
 		_ = state.Metadata.Save(state.Repo.GetMetadataPath())
 
 		restacked = append(restacked, branch)
@@ -932,7 +932,7 @@ func handleModify(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 			if err == nil {
 				restackedChildren = append(restackedChildren, child.Name)
 				parentSHA, _ := state.Repo.GetBranchCommit(currentBranch)
-				state.Metadata.SetParentRevision(child.Name, parentSHA)
+				_ = state.Metadata.SetParentRevision(child.Name, parentSHA)
 			}
 		}
 		_ = state.Metadata.Save(state.Repo.GetMetadataPath())
@@ -1029,7 +1029,7 @@ func handleMove(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 
 	// Update parent revision
 	ontoSHA, _ := state.Repo.GetBranchCommit(onto)
-	state.Metadata.SetParentRevision(branchName, ontoSHA)
+	_ = state.Metadata.SetParentRevision(branchName, ontoSHA)
 	_ = state.Metadata.Save(state.Repo.GetMetadataPath())
 
 	return jsonResult(moveResponse{

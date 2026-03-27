@@ -18,7 +18,7 @@ func TestHandleCheckout_SwitchBranch(t *testing.T) {
 	defer cleanup()
 
 	addTrackedBranch(t, "feat/auth", "main")
-	exec.Command("git", "checkout", "main").Run()
+	_ = exec.Command("git", "checkout", "main").Run()
 
 	req := makeRequest("gs_checkout", map[string]any{"branch": "feat/auth"})
 	result, err := handleCheckout(context.Background(), req)
@@ -31,7 +31,7 @@ func TestHandleCheckout_SwitchBranch(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp checkoutResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.PreviousBranch != "main" {
 		t.Errorf("expected previous branch 'main', got '%s'", resp.PreviousBranch)
@@ -62,7 +62,7 @@ func TestHandleNavigate_UpSingleChild(t *testing.T) {
 	defer cleanup()
 
 	addTrackedBranch(t, "feat/auth", "main")
-	exec.Command("git", "checkout", "main").Run()
+	_ = exec.Command("git", "checkout", "main").Run()
 
 	req := makeRequest("gs_navigate", map[string]any{"direction": "up"})
 	result, err := handleNavigate(context.Background(), req)
@@ -75,7 +75,7 @@ func TestHandleNavigate_UpSingleChild(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp navigateResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.CurrentBranch != "feat/auth" {
 		t.Errorf("expected current branch 'feat/auth', got '%s'", resp.CurrentBranch)
@@ -90,9 +90,9 @@ func TestHandleNavigate_UpAmbiguous(t *testing.T) {
 	defer cleanup()
 
 	addTrackedBranch(t, "feat/auth", "main")
-	exec.Command("git", "checkout", "main").Run()
+	_ = exec.Command("git", "checkout", "main").Run()
 	addTrackedBranch(t, "feat/ui", "main")
-	exec.Command("git", "checkout", "main").Run()
+	_ = exec.Command("git", "checkout", "main").Run()
 
 	req := makeRequest("gs_navigate", map[string]any{"direction": "up"})
 	result, err := handleNavigate(context.Background(), req)
@@ -106,7 +106,7 @@ func TestHandleNavigate_UpAmbiguous(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp navigateAmbiguousResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.Error != "ambiguous_navigation" {
 		t.Errorf("expected ambiguous_navigation error, got '%s'", resp.Error)
@@ -131,7 +131,7 @@ func TestHandleNavigate_Down(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp navigateResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.CurrentBranch != "main" {
 		t.Errorf("expected current branch 'main', got '%s'", resp.CurrentBranch)
@@ -158,7 +158,7 @@ func TestHandleNavigate_Top(t *testing.T) {
 
 	addTrackedBranch(t, "feat/auth", "main")
 	addTrackedBranch(t, "feat/auth-tests", "feat/auth")
-	exec.Command("git", "checkout", "main").Run()
+	_ = exec.Command("git", "checkout", "main").Run()
 
 	req := makeRequest("gs_navigate", map[string]any{"direction": "top"})
 	result, err := handleNavigate(context.Background(), req)
@@ -168,7 +168,7 @@ func TestHandleNavigate_Top(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp navigateResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.CurrentBranch != "feat/auth-tests" {
 		t.Errorf("expected top to be 'feat/auth-tests', got '%s'", resp.CurrentBranch)
@@ -194,7 +194,7 @@ func TestHandleNavigate_Bottom(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp navigateResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.CurrentBranch != "main" {
 		t.Errorf("expected bottom to be 'main', got '%s'", resp.CurrentBranch)
@@ -207,7 +207,7 @@ func TestHandleNavigate_UpMultipleSteps(t *testing.T) {
 
 	addTrackedBranch(t, "feat/auth", "main")
 	addTrackedBranch(t, "feat/auth-tests", "feat/auth")
-	exec.Command("git", "checkout", "main").Run()
+	_ = exec.Command("git", "checkout", "main").Run()
 
 	req := makeRequest("gs_navigate", map[string]any{"direction": "up", "steps": 2})
 	result, err := handleNavigate(context.Background(), req)
@@ -217,7 +217,7 @@ func TestHandleNavigate_UpMultipleSteps(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp navigateResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.CurrentBranch != "feat/auth-tests" {
 		t.Errorf("expected 'feat/auth-tests' after 2 steps up, got '%s'", resp.CurrentBranch)
@@ -245,7 +245,7 @@ func TestHandleCreate_NewBranch(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp createResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.Branch != "feat/new" {
 		t.Errorf("expected branch 'feat/new', got '%s'", resp.Branch)
@@ -271,8 +271,8 @@ func TestHandleCreate_WithCommitMessage(t *testing.T) {
 
 	// Stage a change first
 	cwd, _ := os.Getwd()
-	os.WriteFile(filepath.Join(cwd, "new-file.txt"), []byte("hello"), 0644)
-	exec.Command("git", "add", "new-file.txt").Run()
+	_ = os.WriteFile(filepath.Join(cwd, "new-file.txt"), []byte("hello"), 0644)
+	_ = exec.Command("git", "add", "new-file.txt").Run()
 
 	req := makeRequest("gs_create", map[string]any{
 		"name":           "feat/with-commit",
@@ -285,7 +285,7 @@ func TestHandleCreate_WithCommitMessage(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp createResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if !resp.CommitCreated {
 		t.Error("expected commit to be created")
@@ -315,7 +315,7 @@ func TestHandleDelete_SimpleBranch(t *testing.T) {
 	defer cleanup()
 
 	addTrackedBranch(t, "feat/to-delete", "main")
-	exec.Command("git", "checkout", "main").Run()
+	_ = exec.Command("git", "checkout", "main").Run()
 
 	req := makeRequest("gs_delete", map[string]any{"branch": "feat/to-delete"})
 	result, err := handleDelete(context.Background(), req)
@@ -329,7 +329,7 @@ func TestHandleDelete_SimpleBranch(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp deleteResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.Deleted != "feat/to-delete" {
 		t.Errorf("expected deleted 'feat/to-delete', got '%s'", resp.Deleted)
@@ -345,7 +345,7 @@ func TestHandleDelete_WithChildren(t *testing.T) {
 
 	addTrackedBranch(t, "feat/parent", "main")
 	addTrackedBranch(t, "feat/child", "feat/parent")
-	exec.Command("git", "checkout", "main").Run()
+	_ = exec.Command("git", "checkout", "main").Run()
 
 	req := makeRequest("gs_delete", map[string]any{"branch": "feat/parent"})
 	result, err := handleDelete(context.Background(), req)
@@ -355,7 +355,7 @@ func TestHandleDelete_WithChildren(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp deleteResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if len(resp.ReparentedChildren) != 1 {
 		t.Fatalf("expected 1 reparented child, got %d", len(resp.ReparentedChildren))
@@ -380,7 +380,7 @@ func TestHandleDelete_CurrentBranch(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp deleteResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.CheckedOut != "main" {
 		t.Errorf("expected checkout to 'main', got '%s'", resp.CheckedOut)
@@ -408,11 +408,11 @@ func TestHandleTrack_ExistingBranch(t *testing.T) {
 	defer cleanup()
 
 	// Create a git branch without tracking it
-	exec.Command("git", "checkout", "-b", "untracked").Run()
-	os.WriteFile("untracked.txt", []byte("x"), 0644)
-	exec.Command("git", "add", "untracked.txt").Run()
-	exec.Command("git", "commit", "-m", "untracked commit").Run()
-	exec.Command("git", "checkout", "main").Run()
+	_ = exec.Command("git", "checkout", "-b", "untracked").Run()
+	_ = os.WriteFile("untracked.txt", []byte("x"), 0644)
+	_ = exec.Command("git", "add", "untracked.txt").Run()
+	_ = exec.Command("git", "commit", "-m", "untracked commit").Run()
+	_ = exec.Command("git", "checkout", "main").Run()
 
 	req := makeRequest("gs_track", map[string]any{"branch": "untracked", "parent": "main"})
 	result, err := handleTrack(context.Background(), req)
@@ -426,7 +426,7 @@ func TestHandleTrack_ExistingBranch(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp trackResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.Branch != "untracked" {
 		t.Errorf("expected branch 'untracked', got '%s'", resp.Branch)
@@ -468,7 +468,7 @@ func TestHandleUntrack_TrackedBranch(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp untrackResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.Branch != "feat/to-untrack" {
 		t.Errorf("expected branch 'feat/to-untrack', got '%s'", resp.Branch)
@@ -479,7 +479,7 @@ func TestHandleUntrack_TrackedBranch(t *testing.T) {
 	statusResult, _ := handleStatus(context.Background(), statusReq)
 	statusText := statusResult.Content[0].(mcp.TextContent).Text
 	var statusResp statusResponse
-	json.Unmarshal([]byte(statusText), &statusResp)
+	_ = json.Unmarshal([]byte(statusText), &statusResp)
 
 	for _, b := range statusResp.Branches {
 		if b.Name == "feat/to-untrack" {
@@ -520,7 +520,7 @@ func TestHandleRename_Success(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp renameResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.OldName != "feat/old-name" {
 		t.Errorf("expected old name 'feat/old-name', got '%s'", resp.OldName)
@@ -542,7 +542,7 @@ func TestHandleRename_DuplicateName(t *testing.T) {
 	defer cleanup()
 
 	addTrackedBranch(t, "feat/a", "main")
-	exec.Command("git", "checkout", "main").Run()
+	_ = exec.Command("git", "checkout", "main").Run()
 	addTrackedBranch(t, "feat/b", "main")
 	// Currently on feat/b
 
@@ -584,7 +584,7 @@ func TestHandleRestack_AlreadyUpToDate(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp restackResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	// Branch was just created — should be up to date
 	if len(resp.Restacked) != 0 {
@@ -599,13 +599,13 @@ func TestHandleRestack_NeedRebase(t *testing.T) {
 	addTrackedBranch(t, "feat/auth", "main")
 
 	// Go back to main and add a commit
-	exec.Command("git", "checkout", "main").Run()
-	os.WriteFile("main-change.txt", []byte("change"), 0644)
-	exec.Command("git", "add", "main-change.txt").Run()
-	exec.Command("git", "commit", "-m", "main change").Run()
+	_ = exec.Command("git", "checkout", "main").Run()
+	_ = os.WriteFile("main-change.txt", []byte("change"), 0644)
+	_ = exec.Command("git", "add", "main-change.txt").Run()
+	_ = exec.Command("git", "commit", "-m", "main change").Run()
 
 	// Now feat/auth is behind main
-	exec.Command("git", "checkout", "feat/auth").Run()
+	_ = exec.Command("git", "checkout", "feat/auth").Run()
 
 	req := makeRequest("gs_restack", map[string]any{"scope": "only"})
 	result, err := handleRestack(context.Background(), req)
@@ -615,7 +615,7 @@ func TestHandleRestack_NeedRebase(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp restackResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if len(resp.Restacked) != 1 {
 		t.Errorf("expected 1 restacked, got %d", len(resp.Restacked))
@@ -632,8 +632,8 @@ func TestHandleRestack_UncommittedChangesError(t *testing.T) {
 	addTrackedBranch(t, "feat/auth", "main")
 
 	// Create uncommitted change
-	os.WriteFile("dirty.txt", []byte("dirty"), 0644)
-	exec.Command("git", "add", "dirty.txt").Run()
+	_ = os.WriteFile("dirty.txt", []byte("dirty"), 0644)
+	_ = exec.Command("git", "add", "dirty.txt").Run()
 
 	req := makeRequest("gs_restack", map[string]any{})
 	result, _ := handleRestack(context.Background(), req)
@@ -663,7 +663,7 @@ func TestHandleModify_AmendWithMessage(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp modifyResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.Branch != "feat/auth" {
 		t.Errorf("expected branch 'feat/auth', got '%s'", resp.Branch)
@@ -687,8 +687,8 @@ func TestHandleModify_NewCommit(t *testing.T) {
 	addTrackedBranch(t, "feat/auth", "main")
 
 	// Add a file to stage
-	os.WriteFile("extra.txt", []byte("extra"), 0644)
-	exec.Command("git", "add", "extra.txt").Run()
+	_ = os.WriteFile("extra.txt", []byte("extra"), 0644)
+	_ = exec.Command("git", "add", "extra.txt").Run()
 
 	req := makeRequest("gs_modify", map[string]any{
 		"message":    "new commit on branch",
@@ -701,7 +701,7 @@ func TestHandleModify_NewCommit(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp modifyResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.Action != "committed" {
 		t.Errorf("expected action 'committed', got '%s'", resp.Action)
@@ -728,7 +728,7 @@ func TestHandleMove_Success(t *testing.T) {
 	defer cleanup()
 
 	addTrackedBranch(t, "feat/auth", "main")
-	exec.Command("git", "checkout", "main").Run()
+	_ = exec.Command("git", "checkout", "main").Run()
 	addTrackedBranch(t, "feat/ui", "main")
 	// Move feat/ui onto feat/auth
 
@@ -744,7 +744,7 @@ func TestHandleMove_Success(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp moveResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.Branch != "feat/ui" {
 		t.Errorf("expected branch 'feat/ui', got '%s'", resp.Branch)
@@ -802,7 +802,7 @@ func TestHandleFold_Success(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp foldResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.Folded != "feat/auth" {
 		t.Errorf("expected folded 'feat/auth', got '%s'", resp.Folded)
@@ -835,7 +835,7 @@ func TestHandleFold_WithKeep(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp foldResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if !resp.Kept {
 		t.Error("expected kept=true")
@@ -865,7 +865,7 @@ func TestHandleFold_WithChildren(t *testing.T) {
 
 	addTrackedBranch(t, "feat/auth", "main")
 	addTrackedBranch(t, "feat/auth-tests", "feat/auth")
-	exec.Command("git", "checkout", "feat/auth").Run()
+	_ = exec.Command("git", "checkout", "feat/auth").Run()
 
 	req := makeRequest("gs_fold", map[string]any{})
 	result, err := handleFold(context.Background(), req)
@@ -875,7 +875,7 @@ func TestHandleFold_WithChildren(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp foldResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if len(resp.Reparented) != 1 {
 		t.Fatalf("expected 1 reparented child, got %d", len(resp.Reparented))

@@ -23,12 +23,12 @@ func setupTestRepo(t *testing.T) func() {
 
 	origDir, err := os.Getwd()
 	if err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to get current dir: %v", err)
 	}
 
 	if err := os.Chdir(tmpDir); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to chdir: %v", err)
 	}
 
@@ -40,16 +40,16 @@ func setupTestRepo(t *testing.T) func() {
 		{"config", "commit.gpgsign", "false"},
 	} {
 		if err := exec.Command("git", args...).Run(); err != nil {
-			os.Chdir(origDir)
-			os.RemoveAll(tmpDir)
+			_ = os.Chdir(origDir)
+			_ = os.RemoveAll(tmpDir)
 			t.Fatalf("git %v failed: %v", args, err)
 		}
 	}
 
 	// Create initial commit on main
 	if err := os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte("# Test"), 0644); err != nil {
-		os.Chdir(origDir)
-		os.RemoveAll(tmpDir)
+		_ = os.Chdir(origDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to write file: %v", err)
 	}
 	for _, args := range [][]string{
@@ -58,8 +58,8 @@ func setupTestRepo(t *testing.T) func() {
 		{"branch", "-M", "main"},
 	} {
 		if err := exec.Command("git", args...).Run(); err != nil {
-			os.Chdir(origDir)
-			os.RemoveAll(tmpDir)
+			_ = os.Chdir(origDir)
+			_ = os.RemoveAll(tmpDir)
 			t.Fatalf("git %v failed: %v", args, err)
 		}
 	}
@@ -162,7 +162,7 @@ func TestHandleStatus_WithBranches(t *testing.T) {
 	addTrackedBranch(t, "feat/auth", "main")
 
 	// Switch back to main for a second branch
-	exec.Command("git", "checkout", "main").Run()
+	_ = exec.Command("git", "checkout", "main").Run()
 	addTrackedBranch(t, "feat/ui", "main")
 
 	req := mcp.CallToolRequest{}
@@ -173,7 +173,7 @@ func TestHandleStatus_WithBranches(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp statusResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.CurrentBranch != "feat/ui" {
 		t.Errorf("expected current branch 'feat/ui', got '%s'", resp.CurrentBranch)
@@ -210,18 +210,18 @@ func TestHandleStatus_NotInitialized(t *testing.T) {
 		t.Fatal(err)
 	}
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
+	_ = os.Chdir(tmpDir)
 	defer func() {
-		os.Chdir(origDir)
-		os.RemoveAll(tmpDir)
+		_ = os.Chdir(origDir)
+		_ = os.RemoveAll(tmpDir)
 	}()
 
-	exec.Command("git", "init").Run()
-	exec.Command("git", "config", "user.email", "test@test.com").Run()
-	exec.Command("git", "config", "user.name", "Test User").Run()
-	os.WriteFile(filepath.Join(tmpDir, "f.txt"), []byte("x"), 0644)
-	exec.Command("git", "add", ".").Run()
-	exec.Command("git", "commit", "-m", "init").Run()
+	_ = exec.Command("git", "init").Run()
+	_ = exec.Command("git", "config", "user.email", "test@test.com").Run()
+	_ = exec.Command("git", "config", "user.name", "Test User").Run()
+	_ = os.WriteFile(filepath.Join(tmpDir, "f.txt"), []byte("x"), 0644)
+	_ = exec.Command("git", "add", ".").Run()
+	_ = exec.Command("git", "commit", "-m", "init").Run()
 
 	req := mcp.CallToolRequest{}
 	result, err := handleStatus(context.Background(), req)
@@ -261,7 +261,7 @@ func TestHandleBranchInfo_TrackedBranch(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp branchInfoResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.Name != "feat/auth" {
 		t.Errorf("expected name 'feat/auth', got '%s'", resp.Name)
@@ -295,7 +295,7 @@ func TestHandleBranchInfo_TrunkBranch(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp branchInfoResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.Name != "main" {
 		t.Errorf("expected name 'main', got '%s'", resp.Name)
@@ -313,7 +313,7 @@ func TestHandleBranchInfo_UntrackedBranch(t *testing.T) {
 	defer cleanup()
 
 	// Create a branch in git but don't track it in gs
-	exec.Command("git", "checkout", "-b", "untracked-branch").Run()
+	_ = exec.Command("git", "checkout", "-b", "untracked-branch").Run()
 
 	req := makeRequest("gs_branch_info", map[string]any{"branch": "untracked-branch"})
 	result, err := handleBranchInfo(context.Background(), req)
@@ -340,7 +340,7 @@ func TestHandleBranchInfo_WithChildren(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp branchInfoResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if len(resp.Children) != 1 {
 		t.Fatalf("expected 1 child, got %d", len(resp.Children))
@@ -366,7 +366,7 @@ func TestHandleLog_BasicTree(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp logResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.Trunk != "main" {
 		t.Errorf("expected trunk 'main', got '%s'", resp.Trunk)
@@ -397,7 +397,7 @@ func TestHandleLog_WithCommits(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp logResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	// Find feat/auth and check it has commits
 	for _, b := range resp.Branches {
@@ -430,7 +430,7 @@ func TestHandleDiff_BranchWithChanges(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp diffResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.Branch != "feat/auth" {
 		t.Errorf("expected branch 'feat/auth', got '%s'", resp.Branch)
@@ -458,7 +458,7 @@ func TestHandleDiff_DefaultsToCurrent(t *testing.T) {
 
 	text := result.Content[0].(mcp.TextContent).Text
 	var resp diffResponse
-	json.Unmarshal([]byte(text), &resp)
+	_ = json.Unmarshal([]byte(text), &resp)
 
 	if resp.Branch != "feat/auth" {
 		t.Errorf("expected default to current branch 'feat/auth', got '%s'", resp.Branch)
