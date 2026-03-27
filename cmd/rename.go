@@ -89,7 +89,7 @@ func runRename(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load metadata
-	metadata, err := config.LoadMetadata(repo.GetMetadataPath())
+	metadata, err := loadMetadata(repo)
 	if err != nil {
 		return fmt.Errorf("failed to load metadata: %w", err)
 	}
@@ -121,7 +121,7 @@ func runRename(cmd *cobra.Command, args []string) error {
 		}
 
 		// Save metadata
-		if err := metadata.Save(repo.GetMetadataPath()); err != nil {
+		if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
 			// Try to rollback git rename
 			_, _ = repo.RunGitCommand("branch", "-m", newName, currentBranch)
 			return fmt.Errorf("failed to save metadata: %w", err)

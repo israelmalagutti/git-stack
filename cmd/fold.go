@@ -54,7 +54,7 @@ func runFold(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load metadata
-	metadata, err := config.LoadMetadata(repo.GetMetadataPath())
+	metadata, err := loadMetadata(repo)
 	if err != nil {
 		return fmt.Errorf("failed to load metadata: %w", err)
 	}
@@ -153,7 +153,7 @@ func runFold(cmd *cobra.Command, args []string) error {
 			fmt.Printf("  ✓ Updated '%s' parent to '%s'\n", child.Name, parentBranch)
 		}
 
-		if err := metadata.Save(repo.GetMetadataPath()); err != nil {
+		if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
 			return fmt.Errorf("failed to save metadata: %w", err)
 		}
 	}
@@ -161,7 +161,7 @@ func runFold(cmd *cobra.Command, args []string) error {
 	// Remove current branch from metadata (unless --keep)
 	if !foldKeep {
 		metadata.UntrackBranch(currentBranch)
-		if err := metadata.Save(repo.GetMetadataPath()); err != nil {
+		if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
 			return fmt.Errorf("failed to save metadata: %w", err)
 		}
 
@@ -185,7 +185,7 @@ func runFold(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		if err := metadata.Save(repo.GetMetadataPath()); err != nil {
+		if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
 			return fmt.Errorf("failed to save metadata: %w", err)
 		}
 

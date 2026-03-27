@@ -57,7 +57,7 @@ func runModify(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load metadata
-	metadata, err := config.LoadMetadata(repo.GetMetadataPath())
+	metadata, err := loadMetadata(repo)
 	if err != nil {
 		return fmt.Errorf("failed to load metadata: %w", err)
 	}

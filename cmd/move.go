@@ -58,7 +58,7 @@ func runMove(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load metadata
-	metadata, err := config.LoadMetadata(repo.GetMetadataPath())
+	metadata, err := loadMetadata(repo)
 	if err != nil {
 		return fmt.Errorf("failed to load metadata: %w", err)
 	}
@@ -181,7 +181,7 @@ func runMove(cmd *cobra.Command, args []string) error {
 	}
 
 	// Save metadata
-	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
+	if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 
@@ -194,7 +194,7 @@ func runMove(cmd *cobra.Command, args []string) error {
 			if restoreErr := metadata.UpdateParent(sourceBranch, oldParent); restoreErr != nil {
 				return fmt.Errorf("failed to restore metadata after checkout error: %v (original error: %w)", restoreErr, err)
 			}
-			if saveErr := metadata.Save(repo.GetMetadataPath()); saveErr != nil {
+			if saveErr := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); saveErr != nil {
 				return fmt.Errorf("failed to save restored metadata after checkout error: %v (original error: %w)", saveErr, err)
 			}
 			return fmt.Errorf("failed to checkout '%s': %w", sourceBranch, err)
@@ -208,7 +208,7 @@ func runMove(cmd *cobra.Command, args []string) error {
 		if restoreErr := metadata.UpdateParent(sourceBranch, oldParent); restoreErr != nil {
 			return fmt.Errorf("rebase failed: %w\nFailed to restore metadata: %v", err, restoreErr)
 		}
-		if saveErr := metadata.Save(repo.GetMetadataPath()); saveErr != nil {
+		if saveErr := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); saveErr != nil {
 			return fmt.Errorf("rebase failed: %w\nFailed to save restored metadata: %v", err, saveErr)
 		}
 

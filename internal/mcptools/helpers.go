@@ -31,9 +31,13 @@ func loadRepoState() (*repoState, error) {
 		return nil, fmt.Errorf("gs not initialized (run 'gs init'): %w", err)
 	}
 
-	metadata, err := config.LoadMetadata(repo.GetMetadataPath())
+	metadata, source, err := config.LoadMetadataWithRefs(repo, repo.GetMetadataPath())
 	if err != nil {
 		return nil, fmt.Errorf("failed to load metadata: %w", err)
+	}
+	// Auto-migrate JSON-only metadata to refs
+	if source == config.SourceJSON {
+		_ = metadata.SaveWithRefs(repo, repo.GetMetadataPath())
 	}
 
 	s, err := stack.BuildStack(repo, cfg, metadata)

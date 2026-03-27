@@ -56,7 +56,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load metadata
-	metadata, err := config.LoadMetadata(repo.GetMetadataPath())
+	metadata, err := loadMetadata(repo)
 	if err != nil {
 		return fmt.Errorf("failed to load metadata: %w", err)
 	}
@@ -283,7 +283,7 @@ func cleanStaleBranches(repo *git.Repo, metadata *config.Metadata, cfg *config.C
 		metadata.UntrackBranch(branch)
 	}
 
-	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
+	if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 
@@ -393,7 +393,7 @@ func deleteBranchAndCleanup(repo *git.Repo, metadata *config.Metadata, branch st
 	metadata.UntrackBranch(branch)
 
 	// Save metadata
-	return metadata.Save(repo.GetMetadataPath())
+	return metadata.SaveWithRefs(repo, repo.GetMetadataPath())
 }
 
 // restackAllBranches restacks all branches in topological order, skipping those with conflicts
@@ -437,7 +437,7 @@ func restackAllBranches(repo *git.Repo, s *stack.Stack, metadata *config.Metadat
 
 	// Save metadata if any rebases succeeded
 	if len(succeeded) > 0 {
-		_ = metadata.Save(repo.GetMetadataPath())
+		_ = metadata.SaveWithRefs(repo, repo.GetMetadataPath())
 	}
 
 	return succeeded, failed

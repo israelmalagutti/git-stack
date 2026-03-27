@@ -351,7 +351,7 @@ func handleCreate(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 	// Track in metadata
 	parentSHA, _ := state.Repo.GetBranchCommit(parentBranch)
 	state.Metadata.TrackBranch(name, parentBranch, parentSHA)
-	if err := state.Metadata.Save(state.Repo.GetMetadataPath()); err != nil {
+	if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
 		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
 	}
 
@@ -456,7 +456,7 @@ func handleDelete(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 
 	// Remove from metadata
 	state.Metadata.UntrackBranch(branchName)
-	if err := state.Metadata.Save(state.Repo.GetMetadataPath()); err != nil {
+	if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
 		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
 	}
 
@@ -520,7 +520,7 @@ func handleTrack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRes
 
 	parentSHA, _ := state.Repo.GetBranchCommit(parentName)
 	state.Metadata.TrackBranch(branchName, parentName, parentSHA)
-	if err := state.Metadata.Save(state.Repo.GetMetadataPath()); err != nil {
+	if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
 		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
 	}
 
@@ -574,7 +574,7 @@ func handleUntrack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 	}
 
 	state.Metadata.UntrackBranch(branchName)
-	if err := state.Metadata.Save(state.Repo.GetMetadataPath()); err != nil {
+	if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
 		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
 	}
 
@@ -645,7 +645,7 @@ func handleRename(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 			state.Metadata.TrackBranch(child, newName, childParentRev)
 		}
 
-		if err := state.Metadata.Save(state.Repo.GetMetadataPath()); err != nil {
+		if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
 			// Rollback git rename
 			_, _ = state.Repo.RunGitCommand("branch", "-m", newName, currentBranch)
 			return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
@@ -763,7 +763,7 @@ func handleRestack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 		// Update parent revision
 		parentSHA, _ := state.Repo.GetBranchCommit(parent)
 		_ = state.Metadata.SetParentRevision(branch, parentSHA)
-		_ = state.Metadata.Save(state.Repo.GetMetadataPath())
+		_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
 
 		restacked = append(restacked, branch)
 	}
@@ -935,7 +935,7 @@ func handleModify(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 				_ = state.Metadata.SetParentRevision(child.Name, parentSHA)
 			}
 		}
-		_ = state.Metadata.Save(state.Repo.GetMetadataPath())
+		_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
 		_ = state.Repo.CheckoutBranch(currentBranch)
 	}
 
@@ -1030,7 +1030,7 @@ func handleMove(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 	// Update parent revision
 	ontoSHA, _ := state.Repo.GetBranchCommit(onto)
 	_ = state.Metadata.SetParentRevision(branchName, ontoSHA)
-	_ = state.Metadata.Save(state.Repo.GetMetadataPath())
+	_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
 
 	return jsonResult(moveResponse{
 		Branch:    branchName,
@@ -1114,7 +1114,7 @@ func handleFold(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 		state.Metadata.UntrackBranch(currentBranch)
 	}
 
-	_ = state.Metadata.Save(state.Repo.GetMetadataPath())
+	_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
 
 	return jsonResult(foldResponse{
 		Folded:     currentBranch,

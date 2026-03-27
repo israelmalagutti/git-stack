@@ -101,7 +101,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Track the branch in metadata
-	metadata, err := config.LoadMetadata(repo.GetMetadataPath())
+	metadata, err := loadMetadata(repo)
 	if err != nil {
 		return fmt.Errorf("failed to load metadata: %w", err)
 	}
@@ -109,7 +109,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	parentSHA, _ := repo.GetBranchCommit(currentBranch)
 	metadata.TrackBranch(branchName, currentBranch, parentSHA)
 
-	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
+	if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 
@@ -131,7 +131,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		_ = repo.CheckoutBranch(currentBranch)
 		_ = repo.DeleteBranch(branchName, true)
 		metadata.UntrackBranch(branchName)
-		_ = metadata.Save(repo.GetMetadataPath())
+		_ = metadata.SaveWithRefs(repo, repo.GetMetadataPath())
 	}
 
 	// Handle commit logic based on changes and flags
