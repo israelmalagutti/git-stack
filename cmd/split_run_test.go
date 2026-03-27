@@ -10,7 +10,7 @@ func TestRunSplitCommitMode(t *testing.T) {
 	defer repo.cleanup()
 
 	repo.createBranch(t, "feat-split-run", "main")
-	repo.repo.CheckoutBranch("feat-split-run")
+	_ = repo.repo.CheckoutBranch("feat-split-run")
 	repo.commitFile(t, "a.txt", "a", "commit a")
 	repo.commitFile(t, "b.txt", "b", "commit b")
 
@@ -49,7 +49,7 @@ func TestRunSplitHunkMode(t *testing.T) {
 	defer repo.cleanup()
 
 	repo.createBranch(t, "feat-split-hunk", "main")
-	repo.repo.CheckoutBranch("feat-split-hunk")
+	_ = repo.repo.CheckoutBranch("feat-split-hunk")
 	repo.commitFile(t, "hunk.txt", "hunk", "hunk commit")
 
 	prevCommit := splitByCommit
@@ -77,7 +77,7 @@ func TestRunSplitFileMode(t *testing.T) {
 	defer repo.cleanup()
 
 	repo.createBranch(t, "feat-split-file", "main")
-	repo.repo.CheckoutBranch("feat-split-file")
+	_ = repo.repo.CheckoutBranch("feat-split-file")
 	repo.commitFile(t, "file.txt", "file", "file commit")
 
 	prevCommit := splitByCommit
@@ -104,7 +104,7 @@ func TestRunSplitDefaultHunk(t *testing.T) {
 	defer repo.cleanup()
 
 	repo.createBranch(t, "feat-split-default", "main")
-	repo.repo.CheckoutBranch("feat-split-default")
+	_ = repo.repo.CheckoutBranch("feat-split-default")
 	repo.commitFile(t, "default.txt", "data", "default commit")
 
 	prevCommit := splitByCommit
