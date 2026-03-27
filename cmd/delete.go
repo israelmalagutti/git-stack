@@ -49,7 +49,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load metadata
-	metadata, err := config.LoadMetadata(repo.GetMetadataPath())
+	metadata, err := loadMetadata(repo)
 	if err != nil {
 		return fmt.Errorf("failed to load metadata: %w", err)
 	}
@@ -186,7 +186,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 			fmt.Printf("  ✓ Updated '%s' parent to '%s'\n", child.Name, parentBranch)
 		}
 
-		if err := metadata.Save(repo.GetMetadataPath()); err != nil {
+		if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
 			return fmt.Errorf("failed to save metadata: %w", err)
 		}
 	}
@@ -199,7 +199,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 
 	// Remove from metadata
 	metadata.UntrackBranch(branchToDelete)
-	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
+	if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 

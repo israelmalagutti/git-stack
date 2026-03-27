@@ -95,7 +95,7 @@ func runStackRestack(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load metadata
-	metadata, err := config.LoadMetadata(repo.GetMetadataPath())
+	metadata, err := loadMetadata(repo)
 	if err != nil {
 		return fmt.Errorf("failed to load metadata: %w", err)
 	}
@@ -273,7 +273,7 @@ func runLinearRestack(repo *git.Repo, metadata *config.Metadata, s *stack.Stack,
 		// Update ParentRevision after successful rebase
 		parentSHA, _ := repo.GetBranchCommit(parent)
 		if err := metadata.SetParentRevision(branch, parentSHA); err == nil {
-			_ = metadata.Save(repo.GetMetadataPath())
+			_ = metadata.SaveWithRefs(repo, repo.GetMetadataPath())
 		}
 
 		fmt.Printf("%s Restacked %s onto %s\n",

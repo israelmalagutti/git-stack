@@ -98,7 +98,7 @@ func completeBranchNamesFunc(cmd *cobra.Command, args []string, toComplete strin
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	metadata, err := config.LoadMetadata(repo.GetMetadataPath())
+	metadata, err := loadMetadata(repo)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}

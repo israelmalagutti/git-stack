@@ -80,7 +80,7 @@ func runContinue(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	metadata, err := config.LoadMetadata(repo.GetMetadataPath())
+	metadata, err := loadMetadata(repo)
 	if err != nil {
 		return fmt.Errorf("failed to load metadata: %w", err)
 	}
@@ -90,7 +90,7 @@ func runContinue(cmd *cobra.Command, args []string) error {
 		parentSHA, _ := repo.GetBranchCommit(parent)
 		if parentSHA != "" {
 			if err := metadata.SetParentRevision(currentBranch, parentSHA); err == nil {
-				_ = metadata.Save(repo.GetMetadataPath())
+				_ = metadata.SaveWithRefs(repo, repo.GetMetadataPath())
 			}
 		}
 	}

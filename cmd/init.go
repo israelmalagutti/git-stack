@@ -115,17 +115,19 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("selected branch %s does not exist", trunk)
 	}
 
-	// Create config
+	// Create config (JSON + ref)
 	cfg := config.NewConfig(trunk)
 	if err := cfg.Save(configPath); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
+	// Best-effort: also write config to git refs for team sync
+	_ = config.WriteRefConfig(repo, cfg)
 
 	// Create empty metadata
 	metadata := &config.Metadata{
 		Branches: make(map[string]*config.BranchMetadata),
 	}
-	if err := metadata.Save(repo.GetMetadataPath()); err != nil {
+	if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 
