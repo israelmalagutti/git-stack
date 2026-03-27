@@ -297,7 +297,15 @@ func findLeaves(node *stack.Node) []*stack.Node {
 // --- gs_create ---
 
 var createTool = mcp.NewTool("gs_create",
-	mcp.WithDescription("Create a new stacked branch on top of the current branch. Optionally commit staged changes with a message."),
+	mcp.WithDescription(`Create a new stacked branch on top of the CURRENT branch. The current branch becomes the new branch's parent.
+
+IMPORTANT: Switch to the desired parent branch FIRST using gs_checkout or gs_navigate before calling gs_create.
+
+If commit_message is provided and there are staged changes, those changes are committed on the new branch. If commit_message is provided but there are no staged changes, commit_created will be false in the response.
+
+To create a stack: call gs_create repeatedly — each new branch stacks on top of the previous one.
+
+Returns: {branch, parent, commit_created}`),
 	mcp.WithString("name",
 		mcp.Required(),
 		mcp.Description("Name for the new branch"),
@@ -369,13 +377,18 @@ func handleCreate(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 // --- gs_delete ---
 
 var deleteTool = mcp.NewTool("gs_delete",
-	mcp.WithDescription("Delete a branch from the stack. Children are reparented to the deleted branch's parent. If deleting the current branch, checks out the parent first."),
+	mcp.WithDescription(`Delete a branch from the stack and from git. Children of the deleted branch are automatically reparented to the deleted branch's parent, preserving the stack structure.
+
+If you delete the branch you're currently on, gs automatically checks out the parent branch first.
+
+Use this to clean up merged or abandoned branches. After deleting, consider calling gs_restack with scope "all" to ensure reparented children are properly rebased onto their new parent.
+
+Cannot delete the trunk branch. Always force-deletes (equivalent to git branch -D).
+
+Returns: {deleted, reparented_children[], new_parent, checked_out?}`),
 	mcp.WithString("branch",
 		mcp.Required(),
 		mcp.Description("Name of the branch to delete"),
-	),
-	mcp.WithBoolean("force",
-		mcp.Description("Force delete even if branch has unmerged changes (default: true for MCP)"),
 	),
 )
 
@@ -458,14 +471,20 @@ func handleDelete(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 // --- gs_track ---
 
 var trackTool = mcp.NewTool("gs_track",
-	mcp.WithDescription("Start tracking an existing git branch in the stack by specifying its parent."),
+	mcp.WithDescription(`Start tracking an existing git branch in the gs stack by declaring its parent. Use this to adopt branches that were created outside of gs (e.g., with plain git checkout -b).
+
+Both the branch and the parent must already exist as git branches. The branch must not already be tracked.
+
+After tracking, call gs_restack with scope "only" on the newly tracked branch to rebase it onto its declared parent if needed.
+
+Returns: {branch, parent}`),
 	mcp.WithString("branch",
 		mcp.Required(),
-		mcp.Description("Name of the existing branch to track"),
+		mcp.Description("Name of the existing git branch to start tracking"),
 	),
 	mcp.WithString("parent",
 		mcp.Required(),
-		mcp.Description("Name of the parent branch"),
+		mcp.Description("Name of the parent branch in the stack"),
 	),
 )
 
@@ -511,15 +530,22 @@ func handleTrack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRes
 // --- gs_untrack ---
 
 var untrackTool = mcp.NewTool("gs_untrack",
-	mcp.WithDescription("Stop tracking a branch in the stack. The git branch is not deleted."),
+	mcp.WithDescription(`Stop tracking a branch in the gs stack. The git branch itself is NOT deleted — it just stops appearing in gs_status and gs_log.
+
+WARNING: If this branch has children in the stack, those children will become orphaned. Consider using gs_move to reparent children before untracking, or use gs_delete instead which handles reparenting automatically.
+
+Cannot untrack the trunk branch.
+
+Returns: {branch, warnings[]}`),
 	mcp.WithString("branch",
 		mcp.Required(),
-		mcp.Description("Name of the branch to untrack"),
+		mcp.Description("Name of the branch to stop tracking"),
 	),
 )
 
 type untrackResponse struct {
-	Branch string `json:"branch"`
+	Branch   string   `json:"branch"`
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 func handleUntrack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -540,18 +566,31 @@ func handleUntrack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 		return errResult(fmt.Sprintf("branch '%s' is not tracked", branchName)), nil
 	}
 
+	// Check for orphaned children before untracking
+	var warnings []string
+	children := state.Metadata.GetChildren(branchName)
+	if len(children) > 0 {
+		warnings = append(warnings, fmt.Sprintf("branch had %d children (%s) that are now orphaned — use gs_move to reparent them", len(children), fmt.Sprintf("%v", children)))
+	}
+
 	state.Metadata.UntrackBranch(branchName)
 	if err := state.Metadata.Save(state.Repo.GetMetadataPath()); err != nil {
 		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
 	}
 
-	return jsonResult(untrackResponse{Branch: branchName})
+	return jsonResult(untrackResponse{Branch: branchName, Warnings: warnings})
 }
 
 // --- gs_rename ---
 
 var renameTool = mcp.NewTool("gs_rename",
-	mcp.WithDescription("Rename the current branch and update gs tracking metadata."),
+	mcp.WithDescription(`Rename the CURRENT branch (both the git branch and all gs tracking metadata). All parent/child references from other branches are updated automatically.
+
+Only works on the current branch. To rename a different branch, call gs_checkout first to switch to it.
+
+Cannot rename the trunk branch. The new name must not collide with an existing branch.
+
+Returns: {old_name, new_name}`),
 	mcp.WithString("new_name",
 		mcp.Required(),
 		mcp.Description("New name for the current branch"),

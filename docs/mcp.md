@@ -162,43 +162,64 @@ Move through the stack along parent-child edges.
 - **Direction meanings**: `down` = toward trunk, `up` = toward leaves, `bottom` = jump to trunk, `top` = jump to leaf
 - **When to use**: For relative stack movement. Use `gs_checkout` when you know the target branch name.
 
-### Mutation tools
+### Mutation tools — branch lifecycle
 
 #### `gs_create`
-Create a new stacked branch.
+Create a new stacked branch on top of the **current** branch. Switch to the desired parent first.
 - **Parameters**: `name` (string, required), `commit_message` (string, optional)
-
-#### `gs_restack`
-Rebase branch and descendants onto parent.
-- **Parameters**: `branch` (string, optional), `scope` (enum: only/upstack/downstack/all)
-
-#### `gs_modify`
-Amend current branch and restack children.
-- **Parameters**: `message` (string, optional)
+- **Returns**: `{branch, parent, commit_created}`
+- **When to use**: Starting new work that depends on the current branch. Call repeatedly to build a stack.
 
 #### `gs_delete`
-Delete a branch, reparenting children.
-- **Parameters**: `branch` (string, required), `force` (bool, optional)
-
-#### `gs_move`
-Move a branch to a new parent.
-- **Parameters**: `branch` (string, optional), `onto` (string, required)
-
-#### `gs_fold`
-Fold current branch into its parent.
-- **Parameters**: `keep` (bool, optional)
-
-#### `gs_rename`
-Rename the current branch.
-- **Parameters**: `new_name` (string, required)
+Delete a branch from the stack and git. Children are automatically reparented.
+- **Parameters**: `branch` (string, required)
+- **Returns**: `{deleted, reparented_children[], new_parent, checked_out?}`
+- **When to use**: Cleaning up merged or abandoned branches. Follow with `gs_restack` scope `"all"` to rebase reparented children.
 
 #### `gs_track`
-Start tracking an existing branch.
+Start tracking an existing git branch in the stack. Use to adopt branches created outside gs.
 - **Parameters**: `branch` (string, required), `parent` (string, required)
+- **Returns**: `{branch, parent}`
+- **When to use**: After someone creates a branch with plain `git checkout -b`. Follow with `gs_restack` scope `"only"` to align it.
 
 #### `gs_untrack`
-Stop tracking a branch.
+Stop tracking a branch. The git branch is **not** deleted.
 - **Parameters**: `branch` (string, required)
+- **Returns**: `{branch, warnings[]}`
+- **When to use**: Removing a branch from gs without deleting it. **Warning**: children become orphaned — reparent with `gs_move` first, or use `gs_delete` instead.
+
+#### `gs_rename`
+Rename the **current** branch. Updates all metadata references automatically.
+- **Parameters**: `new_name` (string, required)
+- **Returns**: `{old_name, new_name}`
+- **When to use**: Before submitting a PR, or to fix naming. Switch to the branch first with `gs_checkout`.
+
+### Mutation tools — stack operations
+
+#### `gs_restack`
+Rebase branches to align with their declared parents. The key operation for stack consistency.
+- **Parameters**: `branch` (string, optional — defaults to current), `scope` (enum: only/upstack/downstack/all — default: all)
+- **Returns**: `{restacked[], skipped[], conflict?}`
+- **Scope meanings**: `only` = single branch, `upstack` = branch + descendants, `downstack` = ancestors to trunk, `all` = entire stack
+- **When to use**: After `gs_modify`, `gs_move`, `gs_delete`, or pulling upstream changes. **Prerequisite**: clean working tree.
+
+#### `gs_modify`
+Amend the current branch's last commit (or create a new one) and restack direct children.
+- **Parameters**: `message` (string, optional), `new_commit` (bool, default: false), `stage_all` (bool, default: false)
+- **Returns**: `{branch, action, restacked_children[]}`
+- **When to use**: After making changes to the current branch. Only direct children are restacked — for deeper stacks, follow with `gs_restack` scope `"upstack"`.
+
+#### `gs_move`
+Move a branch to a new parent, rebasing onto the target.
+- **Parameters**: `branch` (string, optional — defaults to current), `onto` (string, required)
+- **Returns**: `{branch, old_parent, new_parent}`
+- **When to use**: Reorganizing the stack. Descendants are NOT automatically restacked — follow with `gs_restack` scope `"upstack"`.
+
+#### `gs_fold`
+Squash-merge the current branch into its parent. Children are reparented. Branch is deleted unless `keep=true`.
+- **Parameters**: `keep` (bool, default: false)
+- **Returns**: `{folded, into, kept, reparented_children[]}`
+- **When to use**: Collapsing completed work into the parent. **Destructive** — individual commit history is lost. Follow with `gs_restack` scope `"upstack"` on the parent to rebase reparented children.
 
 ### Sync tools (post-GitHub integration)
 
