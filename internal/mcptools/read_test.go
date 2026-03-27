@@ -232,3 +232,120 @@ func TestHandleStatus_NotInitialized(t *testing.T) {
 		t.Error("expected error result when gs is not initialized")
 	}
 }
+
+// --- gs_branch_info tests ---
+
+func makeRequest(name string, args map[string]any) mcp.CallToolRequest {
+	return mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name:      name,
+			Arguments: args,
+		},
+	}
+}
+
+func TestHandleBranchInfo_TrackedBranch(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+
+	req := makeRequest("gs_branch_info", map[string]any{"branch": "feat/auth"})
+	result, err := handleBranchInfo(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleBranchInfo returned error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("handleBranchInfo returned tool error")
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp branchInfoResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if resp.Name != "feat/auth" {
+		t.Errorf("expected name 'feat/auth', got '%s'", resp.Name)
+	}
+	if resp.Parent != "main" {
+		t.Errorf("expected parent 'main', got '%s'", resp.Parent)
+	}
+	if resp.Depth != 1 {
+		t.Errorf("expected depth 1, got %d", resp.Depth)
+	}
+	if resp.IsTrunk {
+		t.Error("should not be trunk")
+	}
+	if len(resp.Commits) == 0 {
+		t.Error("expected at least one commit")
+	}
+	if resp.Commits[0].Message != "commit on feat/auth" {
+		t.Errorf("unexpected commit message: %s", resp.Commits[0].Message)
+	}
+}
+
+func TestHandleBranchInfo_TrunkBranch(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	req := makeRequest("gs_branch_info", map[string]any{"branch": "main"})
+	result, err := handleBranchInfo(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleBranchInfo returned error: %v", err)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp branchInfoResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if resp.Name != "main" {
+		t.Errorf("expected name 'main', got '%s'", resp.Name)
+	}
+	if !resp.IsTrunk {
+		t.Error("expected is_trunk=true for main")
+	}
+	if resp.Depth != 0 {
+		t.Errorf("expected depth 0 for trunk, got %d", resp.Depth)
+	}
+}
+
+func TestHandleBranchInfo_UntrackedBranch(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Create a branch in git but don't track it in gs
+	exec.Command("git", "checkout", "-b", "untracked-branch").Run()
+
+	req := makeRequest("gs_branch_info", map[string]any{"branch": "untracked-branch"})
+	result, err := handleBranchInfo(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleBranchInfo returned error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected error for untracked branch")
+	}
+}
+
+func TestHandleBranchInfo_WithChildren(t *testing.T) {
+	cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	addTrackedBranch(t, "feat/auth", "main")
+	addTrackedBranch(t, "feat/auth-tests", "feat/auth")
+
+	req := makeRequest("gs_branch_info", map[string]any{"branch": "feat/auth"})
+	result, err := handleBranchInfo(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handleBranchInfo returned error: %v", err)
+	}
+
+	text := result.Content[0].(mcp.TextContent).Text
+	var resp branchInfoResponse
+	json.Unmarshal([]byte(text), &resp)
+
+	if len(resp.Children) != 1 {
+		t.Fatalf("expected 1 child, got %d", len(resp.Children))
+	}
+	if resp.Children[0] != "feat/auth-tests" {
+		t.Errorf("expected child 'feat/auth-tests', got '%s'", resp.Children[0])
+	}
+}
