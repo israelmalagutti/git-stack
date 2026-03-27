@@ -146,7 +146,7 @@ func removeConfigFiles(repo *git.Repo) {
 		".gw_config", ".gw_stack_metadata", ".gw_continue_state",
 	}
 	for _, f := range files {
-		os.Remove(filepath.Join(commonDir, f))
+		_ = os.Remove(filepath.Join(commonDir, f))
 	}
 }
 
@@ -173,7 +173,7 @@ func migrateFromGW(repo *git.Repo) (bool, error) {
 		// Don't overwrite existing gs files
 		if _, err := os.Stat(newPath); err == nil {
 			// gs file already exists, just remove the old one
-			os.Remove(oldPath)
+			_ = os.Remove(oldPath)
 			migrated = true
 			continue
 		}

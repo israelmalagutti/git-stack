@@ -629,6 +629,11 @@ func getTrunkCommits(repo *git.Repo, branch string, n int) []Commit {
 	return commits
 }
 
+// GetBranchCommits returns the commits unique to this branch (not in parent).
+func (s *Stack) GetBranchCommits(repo *git.Repo, node *Node) []Commit {
+	return s.getBranchCommits(repo, node)
+}
+
 // getBranchCommits returns the commits unique to this branch (not in parent)
 func (s *Stack) getBranchCommits(repo *git.Repo, node *Node) []Commit {
 	if node.Parent == nil {

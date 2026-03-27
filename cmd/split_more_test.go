@@ -14,7 +14,7 @@ func TestSplitByCommitModeSelectionErrors(t *testing.T) {
 	defer repo.cleanup()
 
 	repo.createBranch(t, "feat-split-errors", "main")
-	repo.repo.CheckoutBranch("feat-split-errors")
+	_ = repo.repo.CheckoutBranch("feat-split-errors")
 	repo.commitFile(t, "a.txt", "a", "commit a")
 	repo.commitFile(t, "b.txt", "b", "commit b")
 
@@ -79,7 +79,7 @@ func TestRunSplitPromptCommitMode(t *testing.T) {
 	defer repo.cleanup()
 
 	repo.createBranch(t, "feat-split-prompt", "main")
-	repo.repo.CheckoutBranch("feat-split-prompt")
+	_ = repo.repo.CheckoutBranch("feat-split-prompt")
 	repo.commitFile(t, "a.txt", "a", "commit a")
 	repo.commitFile(t, "b.txt", "b", "commit b")
 
@@ -124,7 +124,7 @@ func TestRunSplitBranchExists(t *testing.T) {
 	defer repo.cleanup()
 
 	repo.createBranch(t, "feat-split-exists", "main")
-	repo.repo.CheckoutBranch("feat-split-exists")
+	_ = repo.repo.CheckoutBranch("feat-split-exists")
 	repo.commitFile(t, "a.txt", "a", "commit a")
 	repo.commitFile(t, "b.txt", "b", "commit b")
 
@@ -147,7 +147,7 @@ func TestSplitByCommitModeCancelled(t *testing.T) {
 	defer repo.cleanup()
 
 	repo.createBranch(t, "feat-split-cancel", "main")
-	repo.repo.CheckoutBranch("feat-split-cancel")
+	_ = repo.repo.CheckoutBranch("feat-split-cancel")
 	repo.commitFile(t, "a.txt", "a", "commit a")
 	repo.commitFile(t, "b.txt", "b", "commit b")
 
@@ -177,7 +177,7 @@ func TestSplitByFileModeErrors(t *testing.T) {
 	}
 
 	repo.createBranch(t, "feat-split-file-error", "main")
-	repo.repo.CheckoutBranch("feat-split-file-error")
+	_ = repo.repo.CheckoutBranch("feat-split-file-error")
 	repo.commitFile(t, "file.txt", "data", "file commit")
 
 	// Invalid pattern should fail to add

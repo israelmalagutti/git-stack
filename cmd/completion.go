@@ -75,9 +75,9 @@ func init() {
 	moveCmd.ValidArgsFunction = completeBranchNames
 
 	// Register flag completions
-	moveCmd.RegisterFlagCompletionFunc("onto", completeBranchNamesFunc)
-	moveCmd.RegisterFlagCompletionFunc("target", completeBranchNamesFunc)
-	moveCmd.RegisterFlagCompletionFunc("source", completeBranchNamesFunc)
+	_ = moveCmd.RegisterFlagCompletionFunc("onto", completeBranchNamesFunc)
+	_ = moveCmd.RegisterFlagCompletionFunc("target", completeBranchNamesFunc)
+	_ = moveCmd.RegisterFlagCompletionFunc("source", completeBranchNamesFunc)
 }
 
 func completeBranchNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

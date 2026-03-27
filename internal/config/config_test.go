@@ -12,7 +12,7 @@ func TestConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	t.Run("Load returns error if not exists", func(t *testing.T) {
 		configPath := filepath.Join(tmpDir, "nonexistent")
@@ -75,7 +75,7 @@ func TestMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	t.Run("creates empty metadata if not exists", func(t *testing.T) {
 		metadataPath := filepath.Join(tmpDir, "new_metadata")

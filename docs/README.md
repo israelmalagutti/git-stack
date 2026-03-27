@@ -4,6 +4,10 @@
 
 - [Visualization Decisions](./visualization-decisions.md) — Design rationale behind `gs log` tree rendering
 
+## Features
+
+- [MCP Server](./mcp.md) — Model Context Protocol server for AI agent integration (`gs mcp`)
+
 ## Subjects
 
 ### Git Internals

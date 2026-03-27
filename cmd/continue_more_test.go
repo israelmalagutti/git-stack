@@ -66,7 +66,7 @@ func TestRunContinueRebaseContinueFailure(t *testing.T) {
 	if err := os.MkdirAll(rebaseDir, 0755); err != nil {
 		t.Fatalf("failed to create rebase dir: %v", err)
 	}
-	defer os.RemoveAll(rebaseDir)
+	defer func() { _ = os.RemoveAll(rebaseDir) }()
 
 	if err := runContinue(nil, nil); err == nil {
 		t.Fatalf("expected rebase continue error")
