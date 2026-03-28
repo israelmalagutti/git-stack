@@ -281,9 +281,10 @@ func cleanStaleBranches(repo *git.Repo, metadata *config.Metadata, cfg *config.C
 		}
 	}
 
-	// Untrack all stale branches
+	// Untrack all stale branches and delete their remote refs
 	for _, branch := range staleBranches {
 		metadata.UntrackBranch(branch)
+		deleteRemoteMetadataRef(repo, branch)
 	}
 
 	if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {

@@ -75,12 +75,9 @@ func (r *Repo) RefExists(refName string) bool {
 }
 
 // DeleteRef deletes a ref under refs/gs/.
+// Returns an error if the deletion fails (including if the ref doesn't exist).
 func (r *Repo) DeleteRef(refName string) error {
 	fullRef := "refs/gs/" + refName
-
-	if !r.RefExists(refName) {
-		return fmt.Errorf("ref %s does not exist", fullRef)
-	}
 
 	_, err := r.RunGitCommand("update-ref", "-d", fullRef)
 	if err != nil {

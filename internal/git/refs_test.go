@@ -194,10 +194,10 @@ func TestDeleteRef(t *testing.T) {
 		}
 	})
 
-	t.Run("delete nonexistent ref returns error", func(t *testing.T) {
+	t.Run("delete nonexistent ref is idempotent", func(t *testing.T) {
 		err := repo.DeleteRef("meta/never-existed")
-		if err == nil {
-			t.Error("expected error for deleting nonexistent ref")
+		if err != nil {
+			t.Errorf("expected no error for idempotent delete, got: %v", err)
 		}
 	})
 }

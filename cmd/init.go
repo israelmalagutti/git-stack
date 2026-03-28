@@ -125,10 +125,14 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if remoteHasRefs {
 		remoteCfg, err := config.ReadRefConfig(repo)
 		if err == nil && remoteCfg.Trunk != "" {
-			// Use the remote's trunk if it differs from selection
+			// Use the remote's trunk if it exists locally
 			if remoteCfg.Trunk != trunk {
-				fmt.Printf("ℹ Remote already has gs config with trunk '%s', using it\n", remoteCfg.Trunk)
-				trunk = remoteCfg.Trunk
+				if repo.BranchExists(remoteCfg.Trunk) {
+					fmt.Printf("ℹ Remote already has gs config with trunk '%s', using it\n", remoteCfg.Trunk)
+					trunk = remoteCfg.Trunk
+				} else {
+					fmt.Printf("⚠ Remote has trunk '%s' but it doesn't exist locally, using '%s'\n", remoteCfg.Trunk, trunk)
+				}
 			}
 		}
 	}

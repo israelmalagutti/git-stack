@@ -135,6 +135,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		_ = repo.DeleteBranch(branchName, true)
 		metadata.UntrackBranch(branchName)
 		_ = metadata.SaveWithRefs(repo, repo.GetMetadataPath())
+		deleteRemoteMetadataRef(repo, branchName)
 	}
 
 	// Handle commit logic based on changes and flags
