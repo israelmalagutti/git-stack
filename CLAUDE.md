@@ -19,6 +19,7 @@ Before implementing any new feature:
 - `ai-context/mcp-server.md` — Full implementation plan with phases, data structures, and design decisions.
 - `docs/branch-metadata-sync.md` — Ref-backed metadata sync design: why git refs, storage format, sync protocol, and team workflows. Read this before modifying `internal/config/ref_metadata.go` or `internal/git/refs.go`.
 - `docs/next-features.md` — Design decisions for upcoming features: `gs submit`, `gs land`, `gs repair`, PR metadata, provider abstraction, merge queues. Read this before implementing any new command.
+- `docs/mcp-tool-consolidation.md` — Plan to reduce MCP tools from 18 to 11: merges, drops, ref sync audit. Read this before adding or modifying MCP tools.
 
 ## Architecture
 
