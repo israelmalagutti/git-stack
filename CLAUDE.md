@@ -8,6 +8,7 @@
 
 Before implementing any new feature:
 
+- **Branch first**: Create a new branch with `gs create <name>` before starting work. We dogfood our own tooling — every feature should be developed on a stacked branch, not directly on main.
 - **MCP tool evaluation**: Determine whether the feature needs an MCP tool (`internal/mcptools/`). If it does, ensure the tool is safe: no destructive side effects without explicit parameters, returns structured JSON, never uses interactive prompts. Every CLI write command should have a matching MCP tool handler that pushes refs to remote.
 - **Test coverage**: Target at least 90% test coverage for new code. Run `go test -coverprofile=cover.out ./... && go tool cover -func=cover.out` to verify. Integration tests with real git repos (using temp dirs + bare remotes) are preferred over mocks.
 

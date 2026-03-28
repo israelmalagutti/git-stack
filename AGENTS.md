@@ -6,6 +6,7 @@ Instructions for AI agents working on this repository.
 
 Before implementing any new feature:
 
+- **Branch first**: Create a new branch with `gs create <name>` before starting work. We dogfood our own tooling — every feature should be developed on a stacked branch, not directly on main. Use `gs log` to verify the stack structure before committing.
 - **MCP tool evaluation**: Determine whether the feature needs an MCP tool in `internal/mcptools/`. If it does, implement it alongside the CLI command — not as a follow-up. Ensure the tool is safe: no destructive side effects without explicit parameters, returns structured JSON, never uses interactive prompts, and pushes refs to remote after any metadata mutation. Flag any proposed tool that could cause data loss without confirmation.
 - **Test coverage**: Target at least 90% test coverage for new code. Write integration tests with real git repos (temp dirs + bare remotes) rather than mocks. When adding a new command, verify both the CLI path and the MCP tool path are tested.
 
