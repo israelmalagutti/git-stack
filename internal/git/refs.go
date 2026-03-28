@@ -75,7 +75,7 @@ func (r *Repo) RefExists(refName string) bool {
 }
 
 // DeleteRef deletes a ref under refs/gs/.
-// Returns an error if the deletion fails (including if the ref doesn't exist).
+// Idempotent: succeeds even if the ref doesn't exist.
 func (r *Repo) DeleteRef(refName string) error {
 	fullRef := "refs/gs/" + refName
 

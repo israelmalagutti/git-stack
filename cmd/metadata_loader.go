@@ -32,19 +32,8 @@ func loadMetadata(repo *git.Repo) (*config.Metadata, error) {
 	return meta, nil
 }
 
-// hasRemoteCached caches the HasRemote check for the duration of a command.
-// Reset by calling hasRemoteCachedReset (only needed in tests).
-var (
-	hasRemoteCachedResult *bool
-)
-
 func repoHasRemote(repo *git.Repo) bool {
-	if hasRemoteCachedResult != nil {
-		return *hasRemoteCachedResult
-	}
-	result := repo.HasRemote(defaultRemote)
-	hasRemoteCachedResult = &result
-	return result
+	return repo.HasRemote(defaultRemote)
 }
 
 // pushMetadataRefs pushes the specified branches' metadata refs to the remote.
