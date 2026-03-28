@@ -4,12 +4,20 @@
 
 `gs` (git-stack) is a CLI tool for managing stacked branches in git, inspired by Graphite's `gt`.
 
+## Development Process
+
+Before implementing any new feature:
+
+- **MCP tool evaluation**: Determine whether the feature needs an MCP tool (`internal/mcptools/`). If it does, ensure the tool is safe: no destructive side effects without explicit parameters, returns structured JSON, never uses interactive prompts. Every CLI write command should have a matching MCP tool handler that pushes refs to remote.
+- **Test coverage**: Target at least 90% test coverage for new code. Run `go test -coverprofile=cover.out ./... && go tool cover -func=cover.out` to verify. Integration tests with real git repos (using temp dirs + bare remotes) are preferred over mocks.
+
 ## Key Documentation
 
 - `docs/visualization-decisions.md` — Every major design decision and rationale behind `gs log` visualization. Read this before modifying the tree rendering code.
 - `docs/mcp.md` — MCP server design: what MCP is, why gs uses it, tool reference, and architecture. Read this before modifying `cmd/mcp.go` or `internal/mcptools/`.
 - `ai-context/mcp-server.md` — Full implementation plan with phases, data structures, and design decisions.
 - `docs/branch-metadata-sync.md` — Ref-backed metadata sync design: why git refs, storage format, sync protocol, and team workflows. Read this before modifying `internal/config/ref_metadata.go` or `internal/git/refs.go`.
+- `docs/next-features.md` — Design decisions for upcoming features: `gs submit`, `gs land`, `gs repair`, PR metadata, provider abstraction, merge queues. Read this before implementing any new command.
 
 ## Architecture
 

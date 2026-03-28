@@ -2,6 +2,13 @@
 
 Instructions for AI agents working on this repository.
 
+## Development Process
+
+Before implementing any new feature:
+
+- **MCP tool evaluation**: Determine whether the feature needs an MCP tool in `internal/mcptools/`. If it does, implement it alongside the CLI command — not as a follow-up. Ensure the tool is safe: no destructive side effects without explicit parameters, returns structured JSON, never uses interactive prompts, and pushes refs to remote after any metadata mutation. Flag any proposed tool that could cause data loss without confirmation.
+- **Test coverage**: Target at least 90% test coverage for new code. Write integration tests with real git repos (temp dirs + bare remotes) rather than mocks. When adding a new command, verify both the CLI path and the MCP tool path are tested.
+
 ## Key Documentation
 
 - `CLAUDE.md` — Project overview, architecture, build commands, and invariants
@@ -9,6 +16,7 @@ Instructions for AI agents working on this repository.
 - `ai-context/mcp-server.md` — Full MCP implementation plan with phases and design decisions
 - `docs/visualization-decisions.md` — Visualization design rationale. Read before modifying tree rendering
 - `docs/branch-metadata-sync.md` — Ref-backed metadata sync design: storage format, sync protocol, team workflows. Read before modifying `internal/config/ref_metadata.go` or `internal/git/refs.go`
+- `docs/next-features.md` — Design decisions for upcoming features: `gs submit`, `gs land`, `gs repair`, PR metadata, provider abstraction, merge queues. Read before implementing any new command
 
 ## MCP Server (`gs mcp`)
 
