@@ -34,6 +34,10 @@ type Provider interface {
 
 	// UpdatePRBase changes the base branch of an existing PR.
 	UpdatePRBase(number int, newBase string) error
+
+	// FindExistingPR checks if an open PR already exists for the given head branch.
+	// Returns nil (not error) if no PR exists.
+	FindExistingPR(head string) (*PRResult, error)
 }
 
 // PRCreateOpts configures PR creation.

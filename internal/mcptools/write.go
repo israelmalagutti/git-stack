@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/israelmalagutti/git-stack/internal/provider"
 	"github.com/israelmalagutti/git-stack/internal/repair"
 	"github.com/israelmalagutti/git-stack/internal/stack"
+	"github.com/israelmalagutti/git-stack/internal/submit"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -23,6 +25,7 @@ func registerWriteTools(s *server.MCPServer) {
 	s.AddTool(moveTool, handleMove)
 	s.AddTool(foldTool, handleFold)
 	s.AddTool(repairTool, handleRepair)
+	s.AddTool(submitTool, handleSubmit)
 }
 
 // --- gs_checkout ---
@@ -1243,5 +1246,100 @@ func handleRepair(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 		IssuesFound: allIssues,
 		IssuesFixed: fixed,
 		Remaining:   remaining,
+	})
+}
+
+// --- gs_submit ---
+
+var submitTool = mcp.NewTool("gs_submit",
+	mcp.WithDescription(`Create or update a pull request for a branch.
+
+Detects the provider from the remote URL, pushes the branch, and creates/updates
+a PR with the correct base branch from stack metadata. Stores the PR number in
+metadata refs so teammates can see it.
+
+Returns: {branch, parent, pr_number, pr_url, action, provider}
+action is "created" or "updated".
+
+Errors if: provider CLI (gh) is not installed, not authenticated, or provider unsupported.`),
+	mcp.WithString("branch",
+		mcp.Description("Branch to submit (default: current branch)"),
+	),
+	mcp.WithBoolean("draft",
+		mcp.Description("Submit as draft PR (default: false)"),
+	),
+	mcp.WithString("title",
+		mcp.Description("PR title (default: first commit message or branch name)"),
+	),
+)
+
+type submitResponse struct {
+	Branch   string `json:"branch"`
+	Parent   string `json:"parent"`
+	PRNumber int    `json:"pr_number"`
+	PRURL    string `json:"pr_url"`
+	Action   string `json:"action"`
+	Provider string `json:"provider"`
+}
+
+func handleSubmit(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	state, err := loadRepoState()
+	if err != nil {
+		return errResult(err.Error()), nil
+	}
+
+	branch := req.GetString("branch", state.Stack.Current)
+	draft := req.GetBool("draft", false)
+	title := req.GetString("title", "")
+
+	node := state.Stack.GetNode(branch)
+	if node == nil {
+		return errResult(fmt.Sprintf("branch '%s' is not tracked by gs", branch)), nil
+	}
+	if node.IsTrunk {
+		return errResult("cannot submit trunk branch"), nil
+	}
+	if node.Parent == nil {
+		return errResult("branch has no parent"), nil
+	}
+
+	// Detect provider
+	remoteURL, err := state.Repo.GetRemoteURL(defaultRemote)
+	if err != nil {
+		return errResult(fmt.Sprintf("no remote '%s' configured: %v", defaultRemote, err)), nil
+	}
+	prov, err := provider.DetectFromRemoteURL(remoteURL)
+	if err != nil {
+		return errResult(fmt.Sprintf("could not detect provider: %v", err)), nil
+	}
+	if !prov.CLIAvailable() {
+		return errResult("provider CLI not found: install gh from https://cli.github.com/"), nil
+	}
+	if !prov.CLIAuthenticated() {
+		return errResult("provider CLI not authenticated: run 'gh auth login'"), nil
+	}
+
+	parentBranch := node.Parent.Name
+
+	result, err := submit.Branch(state.Repo, state.Metadata, prov, defaultRemote, submit.Opts{
+		Branch: branch,
+		Parent: parentBranch,
+		Draft:  draft,
+		Title:  title,
+	})
+	if err != nil {
+		return errResult(fmt.Sprintf("failed to submit: %v", err)), nil
+	}
+
+	_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
+	pushMetadataRefs(state.Repo, branch)
+
+	return jsonResult(submitResponse{
+		Branch:   result.Branch,
+		Parent:   result.Parent,
+		PRNumber: result.PRNumber,
+		PRURL:    result.PRURL,
+		Action:   result.Action,
+		Provider: result.Provider,
 	})
 }
