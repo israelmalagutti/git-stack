@@ -203,6 +203,16 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 
+	// Delete remote metadata ref and push updated children refs
+	deleteRemoteMetadataRef(repo, branchToDelete)
+	if len(deleteNode.Children) > 0 {
+		childNames := make([]string, len(deleteNode.Children))
+		for i, c := range deleteNode.Children {
+			childNames[i] = c.Name
+		}
+		pushMetadataRefs(repo, childNames...)
+	}
+
 	fmt.Printf("✓ Deleted branch '%s'\n", branchToDelete)
 
 	// Rebuild stack and restack children

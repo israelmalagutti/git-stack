@@ -115,6 +115,24 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("selected branch %s does not exist", trunk)
 	}
 
+	// Configure fetch refspec for refs/gs/* so future fetches include metadata
+	configureGSRefspec(repo)
+
+	// Try to fetch existing metadata from remote (newcomer experience)
+	remoteHasRefs := fetchMetadataRefs(repo)
+
+	// Check if remote already has a config ref (team already uses gs)
+	if remoteHasRefs {
+		remoteCfg, err := config.ReadRefConfig(repo)
+		if err == nil && remoteCfg.Trunk != "" {
+			// Use the remote's trunk if it differs from selection
+			if remoteCfg.Trunk != trunk {
+				fmt.Printf("ℹ Remote already has gs config with trunk '%s', using it\n", remoteCfg.Trunk)
+				trunk = remoteCfg.Trunk
+			}
+		}
+	}
+
 	// Create config (JSON + ref)
 	cfg := config.NewConfig(trunk)
 	if err := cfg.Save(configPath); err != nil {
@@ -123,13 +141,27 @@ func runInit(cmd *cobra.Command, args []string) error {
 	// Best-effort: also write config to git refs for team sync
 	_ = config.WriteRefConfig(repo, cfg)
 
-	// Create empty metadata
-	metadata := &config.Metadata{
-		Branches: make(map[string]*config.BranchMetadata),
+	// If remote had metadata refs, load them; otherwise create empty metadata
+	var metadata *config.Metadata
+	if remoteHasRefs {
+		meta, source, loadErr := config.LoadMetadataWithRefs(repo, repo.GetMetadataPath())
+		if loadErr == nil && source == config.SourceRefs && len(meta.Branches) > 0 {
+			metadata = meta
+			fmt.Printf("✓ Imported %d tracked branch(es) from remote\n", len(meta.Branches))
+		}
 	}
+	if metadata == nil {
+		metadata = &config.Metadata{
+			Branches: make(map[string]*config.BranchMetadata),
+		}
+	}
+
 	if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
+
+	// Push config ref to remote so teammates can discover gs
+	pushConfigRef(repo)
 
 	fmt.Printf("✓ Initialized gs with trunk branch: %s\n", trunk)
 	fmt.Printf("  Config: %s\n", configPath)

@@ -174,6 +174,9 @@ func runModify(cmd *cobra.Command, args []string) error {
 		fmt.Println("✓ Children restacked")
 	}
 
+	// Push updated metadata refs to remote
+	pushMetadataRefs(repo)
+
 	return nil
 }
 

@@ -291,6 +291,9 @@ func runLinearRestack(repo *git.Repo, metadata *config.Metadata, s *stack.Stack,
 			colors.Warning("⚠"), colors.BranchCurrent(originalBranch), err)
 	}
 
+	// Push updated metadata refs to remote after restack
+	pushMetadataRefs(repo)
+
 	fmt.Println()
 	fmt.Printf("%s All branches restacked!\n", colors.Success("✓"))
 	return nil

@@ -165,3 +165,39 @@ func (m *Metadata) SaveWithRefs(repo *git.Repo, jsonPath string) error {
 
 	return nil
 }
+
+// gsRefspec is the fetch refspec for gs metadata refs.
+const gsRefspec = "+refs/gs/*:refs/gs/*"
+
+// ConfigureRemoteRefspec sets up the fetch refspec for gs refs on a remote.
+func ConfigureRemoteRefspec(repo *git.Repo, remote string) error {
+	return repo.ConfigureRefspec(remote, gsRefspec)
+}
+
+// FetchAllRefs fetches all refs/gs/* from the remote.
+func FetchAllRefs(repo *git.Repo, remote string) error {
+	return repo.FetchRefs(remote, gsRefspec)
+}
+
+// PushAllRefs pushes all refs/gs/* to the remote.
+func PushAllRefs(repo *git.Repo, remote string) error {
+	return repo.PushRefs(remote, "refs/gs/*:refs/gs/*")
+}
+
+// PushBranchMeta pushes a single branch's metadata ref to the remote.
+func PushBranchMeta(repo *git.Repo, remote, branch string) error {
+	ref := "refs/gs/" + metaRefPrefix + git.EncodeBranchRef(branch)
+	refspec := ref + ":" + ref
+	return repo.PushRefs(remote, refspec)
+}
+
+// PushConfig pushes refs/gs/config to the remote.
+func PushConfig(repo *git.Repo, remote string) error {
+	return repo.PushRefs(remote, "refs/gs/config:refs/gs/config")
+}
+
+// DeleteRemoteBranchMeta deletes a branch's metadata ref from the remote.
+func DeleteRemoteBranchMeta(repo *git.Repo, remote, branch string) error {
+	refName := metaRefPrefix + git.EncodeBranchRef(branch)
+	return repo.DeleteRemoteRef(remote, refName)
+}

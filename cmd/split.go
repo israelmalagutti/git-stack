@@ -284,6 +284,9 @@ func splitByCommitMode(repo *git.Repo, cfg *config.Config, metadata *config.Meta
 		return fmt.Errorf("rebase failed: %w\nResolve conflicts and run: gs stack restack", err)
 	}
 
+	// Push updated metadata refs to remote
+	pushMetadataRefs(repo, newBranchName, currentBranch)
+
 	fmt.Printf("\n✓ Created '%s' with %d commit(s)\n", newBranchName, len(selected))
 	fmt.Printf("✓ '%s' now has %d commit(s) on top of '%s'\n", currentBranch, len(commits)-len(selected), newBranchName)
 
@@ -404,6 +407,9 @@ func splitByHunkMode(repo *git.Repo, cfg *config.Config, metadata *config.Metada
 		}
 	}
 
+	// Push updated metadata refs to remote
+	pushMetadataRefs(repo, newBranchName, currentBranch)
+
 	fmt.Printf("\n✓ Created '%s' as new parent\n", newBranchName)
 	fmt.Printf("✓ '%s' rebased on top\n", currentBranch)
 
@@ -518,6 +524,9 @@ func splitByFileMode(repo *git.Repo, cfg *config.Config, metadata *config.Metada
 			return fmt.Errorf("failed to restack children: %w", err)
 		}
 	}
+
+	// Push updated metadata refs to remote
+	pushMetadataRefs(repo, newBranchName, currentBranch)
 
 	fmt.Printf("\n✓ Created '%s' with files matching: %s\n", newBranchName, patternStr)
 	fmt.Printf("✓ '%s' rebased on top\n", currentBranch)

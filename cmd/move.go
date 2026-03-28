@@ -251,6 +251,9 @@ func runMove(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Push updated metadata refs to remote
+	pushMetadataRefs(repo, sourceBranch)
+
 	fmt.Printf("\n✓ Moved '%s' onto '%s'\n", sourceBranch, targetBranch)
 
 	return nil

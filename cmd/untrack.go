@@ -132,6 +132,12 @@ func runUntrack(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 
+	// Delete remote metadata ref and push updated children refs
+	deleteRemoteMetadataRef(repo, branchToUntrack)
+	if len(children) > 0 {
+		pushMetadataRefs(repo, children...)
+	}
+
 	fmt.Printf("%s Untracked %s\n", colors.Success("✓"), colors.Muted(branchToUntrack))
 
 	return nil

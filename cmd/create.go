@@ -113,6 +113,9 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 
+	// Push new branch's metadata ref to remote
+	pushMetadataRefs(repo, branchName)
+
 	colors.PrintCreated(branchName, currentBranch)
 
 	// Stage all changes if --all flag is set

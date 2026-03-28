@@ -139,6 +139,9 @@ func runSync(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Push all metadata refs to remote after sync
+	pushMetadataRefs(repo)
+
 	fmt.Println("\nSync complete.")
 	return nil
 }
@@ -391,6 +394,9 @@ func deleteBranchAndCleanup(repo *git.Repo, metadata *config.Metadata, branch st
 
 	// Remove from metadata
 	metadata.UntrackBranch(branch)
+
+	// Delete remote metadata ref
+	deleteRemoteMetadataRef(repo, branch)
 
 	// Save metadata
 	return metadata.SaveWithRefs(repo, repo.GetMetadataPath())

@@ -208,6 +208,12 @@ func runFold(cmd *cobra.Command, args []string) error {
 		fmt.Println("✓ Children restacked")
 	}
 
+	// Push updated metadata refs to remote
+	if !foldKeep {
+		deleteRemoteMetadataRef(repo, currentBranch)
+	}
+	pushMetadataRefs(repo)
+
 	fmt.Printf("\n✓ Folded '%s' into '%s'\n", currentBranch, parentBranch)
 
 	return nil

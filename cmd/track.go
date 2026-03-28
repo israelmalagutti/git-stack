@@ -137,6 +137,9 @@ func runTrack(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 
+	// Push tracked branch's metadata ref to remote
+	pushMetadataRefs(repo, branchToTrack)
+
 	colors.PrintTracked(branchToTrack, parent)
 
 	// Show children if any

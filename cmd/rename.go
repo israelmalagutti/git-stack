@@ -126,6 +126,13 @@ func runRename(cmd *cobra.Command, args []string) error {
 			_, _ = repo.RunGitCommand("branch", "-m", newName, currentBranch)
 			return fmt.Errorf("failed to save metadata: %w", err)
 		}
+
+		// Delete old remote ref, push new ref + updated children refs
+		deleteRemoteMetadataRef(repo, currentBranch)
+		pushMetadataRefs(repo, newName)
+		if len(children) > 0 {
+			pushMetadataRefs(repo, children...)
+		}
 	}
 
 	fmt.Printf("%s Renamed %s to %s\n",

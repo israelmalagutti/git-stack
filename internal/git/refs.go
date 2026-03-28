@@ -105,3 +105,82 @@ func (r *Repo) ListRefs(prefix string) ([]string, error) {
 
 	return refs, nil
 }
+
+// HasRemote checks if a named remote exists in the repository.
+func (r *Repo) HasRemote(remote string) bool {
+	output, err := r.RunGitCommand("remote")
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(output, "\n") {
+		if strings.TrimSpace(line) == remote {
+			return true
+		}
+	}
+	return false
+}
+
+// HasRefspec checks if a fetch refspec is already configured for a remote.
+func (r *Repo) HasRefspec(remote, refspec string) (bool, error) {
+	output, err := r.RunGitCommand("config", "--get-all", fmt.Sprintf("remote.%s.fetch", remote))
+	if err != nil {
+		// No fetch config at all
+		return false, nil
+	}
+	for _, line := range strings.Split(output, "\n") {
+		if strings.TrimSpace(line) == refspec {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// ConfigureRefspec adds a fetch refspec to .git/config for a remote if not already present.
+func (r *Repo) ConfigureRefspec(remote, refspec string) error {
+	has, err := r.HasRefspec(remote, refspec)
+	if err != nil {
+		return err
+	}
+	if has {
+		return nil
+	}
+	_, err = r.RunGitCommand("config", "--add", fmt.Sprintf("remote.%s.fetch", remote), refspec)
+	if err != nil {
+		return fmt.Errorf("failed to add refspec %s for %s: %w", refspec, remote, err)
+	}
+	return nil
+}
+
+// PushRefs pushes one or more refspecs to a remote.
+// Each refspec should be a full refspec like "refs/gs/meta/feat--auth:refs/gs/meta/feat--auth".
+func (r *Repo) PushRefs(remote string, refspecs ...string) error {
+	args := []string{"push", remote}
+	args = append(args, refspecs...)
+	_, err := r.RunGitCommand(args...)
+	if err != nil {
+		return fmt.Errorf("failed to push refs to %s: %w", remote, err)
+	}
+	return nil
+}
+
+// FetchRefs fetches one or more refspecs from a remote.
+func (r *Repo) FetchRefs(remote string, refspecs ...string) error {
+	args := []string{"fetch", remote}
+	args = append(args, refspecs...)
+	_, err := r.RunGitCommand(args...)
+	if err != nil {
+		return fmt.Errorf("failed to fetch refs from %s: %w", remote, err)
+	}
+	return nil
+}
+
+// DeleteRemoteRef deletes a ref on the remote by pushing an empty source.
+// The refName should be relative to refs/gs/ (e.g., "meta/feat--auth").
+func (r *Repo) DeleteRemoteRef(remote, refName string) error {
+	fullRef := "refs/gs/" + refName
+	_, err := r.RunGitCommand("push", remote, "--delete", fullRef)
+	if err != nil {
+		return fmt.Errorf("failed to delete remote ref %s: %w", fullRef, err)
+	}
+	return nil
+}
