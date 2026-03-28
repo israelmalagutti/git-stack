@@ -2,7 +2,6 @@ package git
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 )
 
@@ -24,14 +23,11 @@ func DecodeBranchRef(encoded string) string {
 func (r *Repo) WriteRef(refName string, data []byte) error {
 	fullRef := "refs/gs/" + refName
 
-	// Store the data as a blob
-	cmd := exec.Command("git", "hash-object", "-w", "--stdin")
-	cmd.Stdin = strings.NewReader(string(data))
-	output, err := cmd.CombinedOutput()
+	// Store the data as a blob via RunGitCommandWithStdin to respect repo context
+	sha, err := r.RunGitCommandWithStdin(string(data), "hash-object", "-w", "--stdin")
 	if err != nil {
-		return fmt.Errorf("failed to hash-object: %w\n%s", err, string(output))
+		return fmt.Errorf("failed to hash-object: %w", err)
 	}
-	sha := strings.TrimSpace(string(output))
 
 	// Point the ref at the blob
 	_, err = r.RunGitCommand("update-ref", fullRef, sha)

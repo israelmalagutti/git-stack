@@ -93,3 +93,14 @@ func (r *Repo) RunGitCommand(args ...string) (string, error) {
 	}
 	return strings.TrimSpace(string(output)), nil
 }
+
+// RunGitCommandWithStdin executes a git command with stdin data and returns output
+func (r *Repo) RunGitCommandWithStdin(stdin string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Stdin = strings.NewReader(stdin)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("git %s failed: %w\n%s", strings.Join(args, " "), err, string(output))
+	}
+	return strings.TrimSpace(string(output)), nil
+}
