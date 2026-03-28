@@ -277,8 +277,8 @@ func TestRefsWithEncodedSlashes(t *testing.T) {
 	}
 
 	// Branch names with slashes get encoded so they don't conflict in git ref paths
-	authRef := "meta/" + EncodeBranchRef("feat/auth")       // meta/feat--auth
-	authUIRef := "meta/" + EncodeBranchRef("feat/auth/ui")   // meta/feat--auth--ui
+	authRef := "meta/" + EncodeBranchRef("feat/auth")      // meta/feat--auth
+	authUIRef := "meta/" + EncodeBranchRef("feat/auth/ui") // meta/feat--auth--ui
 
 	if err := repo.WriteRef(authRef, []byte(`{"parent":"main"}`)); err != nil {
 		t.Fatalf("WriteRef feat/auth failed: %v", err)

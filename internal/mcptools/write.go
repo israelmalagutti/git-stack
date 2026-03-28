@@ -394,10 +394,10 @@ Returns: {deleted, reparented_children[], new_parent, checked_out?}`),
 )
 
 type deleteResponse struct {
-	Deleted           string   `json:"deleted"`
+	Deleted            string   `json:"deleted"`
 	ReparentedChildren []string `json:"reparented_children"`
-	NewParent         string   `json:"new_parent"`
-	CheckedOut        string   `json:"checked_out,omitempty"`
+	NewParent          string   `json:"new_parent"`
+	CheckedOut         string   `json:"checked_out,omitempty"`
 }
 
 func handleDelete(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -881,8 +881,8 @@ Returns: {branch, action ("amended" or "committed"), restacked_children[]}`),
 )
 
 type modifyResponse struct {
-	Branch          string   `json:"branch"`
-	Action          string   `json:"action"`
+	Branch            string   `json:"branch"`
+	Action            string   `json:"action"`
 	RestackedChildren []string `json:"restacked_children"`
 }
 
