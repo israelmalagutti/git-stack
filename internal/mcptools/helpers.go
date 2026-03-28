@@ -53,6 +53,31 @@ func loadRepoState() (*repoState, error) {
 	}, nil
 }
 
+const defaultRemote = "origin"
+
+// pushMetadataRefs pushes the specified branches' metadata refs to the remote.
+// Best-effort: silently skips if no remote exists.
+func pushMetadataRefs(repo *git.Repo, branches ...string) {
+	if !repo.HasRemote(defaultRemote) {
+		return
+	}
+	if len(branches) == 0 {
+		_ = config.PushAllRefs(repo, defaultRemote)
+	} else {
+		for _, branch := range branches {
+			_ = config.PushBranchMeta(repo, defaultRemote, branch)
+		}
+	}
+}
+
+// deleteRemoteMetadataRef deletes a branch's metadata ref from the remote. Best-effort.
+func deleteRemoteMetadataRef(repo *git.Repo, branch string) {
+	if !repo.HasRemote(defaultRemote) {
+		return
+	}
+	_ = config.DeleteRemoteBranchMeta(repo, defaultRemote, branch)
+}
+
 // jsonResult marshals data to JSON and returns an MCP text result.
 func jsonResult(data any) (*mcp.CallToolResult, error) {
 	b, err := json.MarshalIndent(data, "", "  ")

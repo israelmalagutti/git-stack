@@ -354,6 +354,7 @@ func handleCreate(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 	if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
 		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
 	}
+	pushMetadataRefs(state.Repo, name)
 
 	// Optionally commit
 	commitCreated := false
@@ -459,6 +460,10 @@ func handleDelete(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 	if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
 		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
 	}
+	deleteRemoteMetadataRef(state.Repo, branchName)
+	if len(reparented) > 0 {
+		pushMetadataRefs(state.Repo, reparented...)
+	}
 
 	return jsonResult(deleteResponse{
 		Deleted:            branchName,
@@ -523,6 +528,7 @@ func handleTrack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRes
 	if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
 		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
 	}
+	pushMetadataRefs(state.Repo, branchName)
 
 	return jsonResult(trackResponse{Branch: branchName, Parent: parentName})
 }
@@ -577,6 +583,7 @@ func handleUntrack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 	if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
 		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
 	}
+	deleteRemoteMetadataRef(state.Repo, branchName)
 
 	return jsonResult(untrackResponse{Branch: branchName, Warnings: warnings})
 }
@@ -649,6 +656,11 @@ func handleRename(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 			// Rollback git rename
 			_, _ = state.Repo.RunGitCommand("branch", "-m", newName, currentBranch)
 			return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
+		}
+		deleteRemoteMetadataRef(state.Repo, currentBranch)
+		pushMetadataRefs(state.Repo, newName)
+		if len(children) > 0 {
+			pushMetadataRefs(state.Repo, children...)
 		}
 	}
 
@@ -770,6 +782,11 @@ func handleRestack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 
 	// Return to original branch
 	_ = state.Repo.CheckoutBranch(originalBranch)
+
+	// Push updated metadata refs after restack
+	if len(restacked) > 0 {
+		pushMetadataRefs(state.Repo)
+	}
 
 	return jsonResult(restackResponse{Restacked: restacked, Skipped: skipped})
 }
@@ -939,6 +956,9 @@ func handleModify(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 		_ = state.Repo.CheckoutBranch(currentBranch)
 	}
 
+	// Push updated metadata refs
+	pushMetadataRefs(state.Repo)
+
 	return jsonResult(modifyResponse{
 		Branch:            currentBranch,
 		Action:            action,
@@ -1031,6 +1051,7 @@ func handleMove(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 	ontoSHA, _ := state.Repo.GetBranchCommit(onto)
 	_ = state.Metadata.SetParentRevision(branchName, ontoSHA)
 	_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
+	pushMetadataRefs(state.Repo, branchName)
 
 	return jsonResult(moveResponse{
 		Branch:    branchName,
@@ -1115,6 +1136,12 @@ func handleFold(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 	}
 
 	_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
+
+	// Sync remote refs
+	if !keep {
+		deleteRemoteMetadataRef(state.Repo, currentBranch)
+	}
+	pushMetadataRefs(state.Repo)
 
 	return jsonResult(foldResponse{
 		Folded:     currentBranch,
