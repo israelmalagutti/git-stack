@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/israelmalagutti/git-stack/internal/land"
 	"github.com/israelmalagutti/git-stack/internal/provider"
 	"github.com/israelmalagutti/git-stack/internal/repair"
 	"github.com/israelmalagutti/git-stack/internal/stack"
@@ -26,6 +27,7 @@ func registerWriteTools(s *server.MCPServer) {
 	s.AddTool(foldTool, handleFold)
 	s.AddTool(repairTool, handleRepair)
 	s.AddTool(submitTool, handleSubmit)
+	s.AddTool(landTool, handleLand)
 }
 
 // --- gs_checkout ---
@@ -1341,5 +1343,93 @@ func handleSubmit(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 		PRURL:    result.PRURL,
 		Action:   result.Action,
 		Provider: result.Provider,
+	})
+}
+
+// --- gs_land ---
+
+var landTool = mcp.NewTool("gs_land",
+	mcp.WithDescription(`Land a branch whose PR has been merged (or whose commits are in trunk).
+
+Reparents children to the landed branch's parent, updates children's PR base
+branches on the provider, deletes the branch locally and remotely, and cleans
+up metadata refs.
+
+Works without a provider — falls back to git merge-base check.
+Errors if the branch is not merged.
+
+Returns: {landed, new_parent, reparented_children[], updated_pr_bases[], checked_out?}`),
+	mcp.WithString("branch",
+		mcp.Description("Branch to land (default: current branch)"),
+	),
+)
+
+type landResponse struct {
+	Landed             string             `json:"landed"`
+	NewParent          string             `json:"new_parent"`
+	ReparentedChildren []string           `json:"reparented_children"`
+	UpdatedPRBases     []landPRBaseUpdate `json:"updated_pr_bases"`
+	CheckedOut         string             `json:"checked_out,omitempty"`
+}
+
+type landPRBaseUpdate struct {
+	Branch   string `json:"branch"`
+	PRNumber int    `json:"pr_number"`
+	NewBase  string `json:"new_base"`
+}
+
+func handleLand(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	state, err := loadRepoState()
+	if err != nil {
+		return errResult(err.Error()), nil
+	}
+
+	branch := req.GetString("branch", state.Stack.Current)
+
+	if branch == state.Config.Trunk {
+		return errResult("cannot land trunk branch"), nil
+	}
+
+	// Detect provider (best-effort)
+	var prov provider.Provider
+	remoteURL, err := state.Repo.GetRemoteURL(defaultRemote)
+	if err == nil {
+		if p, err := provider.DetectFromRemoteURL(remoteURL); err == nil {
+			if p.CLIAvailable() && p.CLIAuthenticated() {
+				prov = p
+			}
+		}
+	}
+
+	result, err := land.Branch(state.Repo, state.Metadata, prov, state.Config.Trunk, state.Stack.Current, defaultRemote, land.Opts{
+		Branch: branch,
+	})
+	if err != nil {
+		return errResult(fmt.Sprintf("failed to land: %v", err)), nil
+	}
+
+	// Save metadata and sync refs
+	_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
+	deleteRemoteMetadataRef(state.Repo, branch)
+	if len(result.ReparentedChildren) > 0 {
+		pushMetadataRefs(state.Repo, result.ReparentedChildren...)
+	}
+
+	// Convert PR base updates
+	prUpdates := make([]landPRBaseUpdate, len(result.UpdatedPRBases))
+	for i, u := range result.UpdatedPRBases {
+		prUpdates[i] = landPRBaseUpdate{
+			Branch:   u.Branch,
+			PRNumber: u.PRNumber,
+			NewBase:  u.NewBase,
+		}
+	}
+
+	return jsonResult(landResponse{
+		Landed:             result.Landed,
+		NewParent:          result.NewParent,
+		ReparentedChildren: result.ReparentedChildren,
+		UpdatedPRBases:     prUpdates,
+		CheckedOut:         result.CheckedOut,
 	})
 }
