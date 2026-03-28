@@ -94,6 +94,15 @@ func (r *Repo) RunGitCommand(args ...string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
+// GetRemoteURL returns the URL configured for a named remote.
+func (r *Repo) GetRemoteURL(remote string) (string, error) {
+	output, err := r.RunGitCommand("remote", "get-url", remote)
+	if err != nil {
+		return "", fmt.Errorf("failed to get URL for remote %s: %w", remote, err)
+	}
+	return output, nil
+}
+
 // RunGitCommandWithStdin executes a git command with stdin data and returns output
 func (r *Repo) RunGitCommandWithStdin(stdin string, args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
