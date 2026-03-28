@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/israelmalagutti/git-stack/internal/land"
 	"github.com/israelmalagutti/git-stack/internal/provider"
 	"github.com/israelmalagutti/git-stack/internal/repair"
@@ -782,7 +784,9 @@ func handleRestack(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 		// Update parent revision
 		parentSHA, _ := state.Repo.GetBranchCommit(parent)
 		_ = state.Metadata.SetParentRevision(branch, parentSHA)
-		_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
+		if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
+			return errResult(fmt.Sprintf("failed to save metadata after restacking '%s': %v", branch, err)), nil
+		}
 
 		restacked = append(restacked, branch)
 	}
@@ -959,7 +963,9 @@ func handleModify(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 				_ = state.Metadata.SetParentRevision(child.Name, parentSHA)
 			}
 		}
-		_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
+		if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
+			return errResult(fmt.Sprintf("failed to save metadata after modify: %v", err)), nil
+		}
 		_ = state.Repo.CheckoutBranch(currentBranch)
 	}
 
@@ -1057,7 +1063,9 @@ func handleMove(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 	// Update parent revision
 	ontoSHA, _ := state.Repo.GetBranchCommit(onto)
 	_ = state.Metadata.SetParentRevision(branchName, ontoSHA)
-	_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
+	if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
+		return errResult(fmt.Sprintf("failed to save metadata after move: %v", err)), nil
+	}
 	pushMetadataRefs(state.Repo, branchName)
 
 	return jsonResult(moveResponse{
@@ -1142,7 +1150,9 @@ func handleFold(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 		state.Metadata.UntrackBranch(currentBranch)
 	}
 
-	_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
+	if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
+		return errResult(fmt.Sprintf("failed to save metadata after fold: %v", err)), nil
+	}
 
 	// Sync remote refs
 	if !keep {
@@ -1233,7 +1243,9 @@ func handleRepair(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 	}
 
 	if len(fixed) > 0 {
-		_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
+		if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
+			return errResult(fmt.Sprintf("fixes applied but failed to save metadata: %v", err)), nil
+		}
 		pushMetadataRefs(state.Repo)
 	}
 
@@ -1323,6 +1335,13 @@ func handleSubmit(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 
 	parentBranch := node.Parent.Name
 
+	// Ensure parent is pushed if it's not trunk
+	if !node.Parent.IsTrunk && !state.Repo.HasRemoteBranch(parentBranch, defaultRemote) {
+		if _, err := state.Repo.RunGitCommand("push", "-u", defaultRemote, parentBranch); err != nil {
+			return errResult(fmt.Sprintf("failed to push parent '%s': %v", parentBranch, err)), nil
+		}
+	}
+
 	result, err := submit.Branch(state.Repo, state.Metadata, prov, defaultRemote, submit.Opts{
 		Branch: branch,
 		Parent: parentBranch,
@@ -1333,7 +1352,9 @@ func handleSubmit(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 		return errResult(fmt.Sprintf("failed to submit: %v", err)), nil
 	}
 
-	_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
+	if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
+		return errResult(fmt.Sprintf("PR created but failed to save metadata: %v", err)), nil
+	}
 	pushMetadataRefs(state.Repo, branch)
 
 	return jsonResult(submitResponse{
@@ -1369,6 +1390,7 @@ type landResponse struct {
 	NewParent          string             `json:"new_parent"`
 	ReparentedChildren []string           `json:"reparented_children"`
 	UpdatedPRBases     []landPRBaseUpdate `json:"updated_pr_bases"`
+	Restacked          []string           `json:"restacked,omitempty"`
 	CheckedOut         string             `json:"checked_out,omitempty"`
 }
 
@@ -1409,10 +1431,27 @@ func handleLand(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 	}
 
 	// Save metadata and sync refs
-	_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
+	if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
+		return errResult(fmt.Sprintf("branch landed but failed to save metadata: %v", err)), nil
+	}
 	deleteRemoteMetadataRef(state.Repo, branch)
 	if len(result.ReparentedChildren) > 0 {
 		pushMetadataRefs(state.Repo, result.ReparentedChildren...)
+	}
+
+	// Recursively restack children onto new parent (parity with CLI cmd/land.go restackChildren)
+	var restacked []string
+	if len(result.ReparentedChildren) > 0 {
+		// Rebuild stack since the landed branch was removed
+		s, buildErr := stack.BuildStack(state.Repo, state.Config, state.Metadata)
+		if buildErr == nil {
+			parentNode := s.GetNode(result.NewParent)
+			if parentNode != nil {
+				restacked = mcpRestackChildren(state.Repo, state.Metadata, s, parentNode)
+			}
+		}
+		// Return to parent after restacking
+		_ = state.Repo.CheckoutBranch(result.NewParent)
 	}
 
 	// Convert PR base updates
@@ -1431,5 +1470,55 @@ func handleLand(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 		ReparentedChildren: result.ReparentedChildren,
 		UpdatedPRBases:     prUpdates,
 		CheckedOut:         result.CheckedOut,
+		Restacked:          restacked,
 	})
+}
+
+// mcpRestackChildren recursively restacks all children of a node using
+// precise --onto rebase when parentRevision is available, and updates
+// parent revision metadata after each successful rebase. Mirrors the
+// behavior of cmd/stack_restack.go restackChildren + restackBranchOnto.
+func mcpRestackChildren(repo *git.Repo, metadata *config.Metadata, s *stack.Stack, parent *stack.Node) []string {
+	var restacked []string
+	for _, child := range parent.Children {
+		if err := repo.CheckoutBranch(child.Name); err != nil {
+			continue
+		}
+
+		behind, err := repo.IsBehind(child.Name, parent.Name)
+		if err != nil || !behind {
+			// Recurse even if this child doesn't need rebase — grandchildren might
+			if len(child.Children) > 0 {
+				restacked = append(restacked, mcpRestackChildren(repo, metadata, s, child)...)
+			}
+			continue
+		}
+
+		// Use precise --onto rebase when parentRevision is available
+		parentRev := metadata.GetParentRevision(child.Name)
+		var rebaseErr error
+		if parentRev != "" {
+			rebaseErr = repo.RebaseOnto(child.Name, parent.Name, parentRev)
+		} else {
+			rebaseErr = repo.Rebase(child.Name, parent.Name)
+		}
+
+		if rebaseErr != nil {
+			continue // skip this child on conflict, try siblings
+		}
+
+		// Update parent revision after successful rebase
+		parentSHA, _ := repo.GetBranchCommit(parent.Name)
+		if parentSHA != "" {
+			_ = metadata.SetParentRevision(child.Name, parentSHA)
+		}
+
+		restacked = append(restacked, child.Name)
+
+		// Recurse into grandchildren
+		if len(child.Children) > 0 {
+			restacked = append(restacked, mcpRestackChildren(repo, metadata, s, child)...)
+		}
+	}
+	return restacked
 }
