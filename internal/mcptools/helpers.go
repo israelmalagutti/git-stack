@@ -56,18 +56,23 @@ func loadRepoState() (*repoState, error) {
 const defaultRemote = "origin"
 
 // pushMetadataRefs pushes the specified branches' metadata refs to the remote.
-// Best-effort: silently skips if no remote exists.
+// Best-effort: silently skips if no remote exists. Batches multiple branches
+// into a single git push for efficiency.
 func pushMetadataRefs(repo *git.Repo, branches ...string) {
 	if !repo.HasRemote(defaultRemote) {
 		return
 	}
 	if len(branches) == 0 {
 		_ = config.PushAllRefs(repo, defaultRemote)
-	} else {
-		for _, branch := range branches {
-			_ = config.PushBranchMeta(repo, defaultRemote, branch)
-		}
+		return
 	}
+	// Batch into single push
+	refspecs := make([]string, 0, len(branches))
+	for _, branch := range branches {
+		ref := "refs/gs/meta/" + git.EncodeBranchRef(branch)
+		refspecs = append(refspecs, ref+":"+ref)
+	}
+	_ = repo.PushRefs(defaultRemote, refspecs...)
 }
 
 // deleteRemoteMetadataRef deletes a branch's metadata ref from the remote. Best-effort.
