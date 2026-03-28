@@ -37,3 +37,7 @@ func (g *GenericProvider) MergePR(number int, opts PRMergeOpts) error {
 func (g *GenericProvider) UpdatePRBase(number int, newBase string) error {
 	return fmt.Errorf("PR base update not supported for %s: %w", g.host, ErrNotSupported)
 }
+
+func (g *GenericProvider) FindExistingPR(head string) (*PRResult, error) {
+	return nil, fmt.Errorf("PR lookup not supported for %s: %w", g.host, ErrNotSupported)
+}

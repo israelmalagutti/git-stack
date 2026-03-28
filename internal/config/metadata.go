@@ -7,12 +7,19 @@ import (
 	"time"
 )
 
+// PRInfo stores a pull request reference for a tracked branch.
+type PRInfo struct {
+	Number   int    `json:"number"`
+	Provider string `json:"provider"` // "github", "gitlab"
+}
+
 // BranchMetadata represents metadata for a tracked branch
 type BranchMetadata struct {
 	Parent         string    `json:"parent"`
 	Tracked        bool      `json:"tracked"`
 	Created        time.Time `json:"created"`
 	ParentRevision string    `json:"parentRevision,omitempty"`
+	PR             *PRInfo   `json:"pr,omitempty"`
 }
 
 // Metadata represents the stack metadata
@@ -128,4 +135,23 @@ func (m *Metadata) UpdateParent(branch, newParent string) error {
 	}
 	meta.Parent = newParent
 	return nil
+}
+
+// SetPR stores a PR reference for a tracked branch.
+func (m *Metadata) SetPR(branch string, pr *PRInfo) error {
+	meta, exists := m.Branches[branch]
+	if !exists {
+		return fmt.Errorf("branch %s is not tracked", branch)
+	}
+	meta.PR = pr
+	return nil
+}
+
+// GetPR returns the PR reference for a branch, or nil if none.
+func (m *Metadata) GetPR(branch string) *PRInfo {
+	meta, exists := m.Branches[branch]
+	if !exists || meta.PR == nil {
+		return nil
+	}
+	return meta.PR
 }

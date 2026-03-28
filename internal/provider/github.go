@@ -185,6 +185,40 @@ func (g *GitHubProvider) UpdatePRBase(number int, newBase string) error {
 	return err
 }
 
+func (g *GitHubProvider) FindExistingPR(head string) (*PRResult, error) {
+	if !g.CLIAvailable() {
+		return nil, fmt.Errorf("%w: install gh from https://cli.github.com/", ErrCLINotFound)
+	}
+
+	output, err := g.runGH("pr", "list",
+		"--repo", g.repoFlag(),
+		"--head", head,
+		"--state", "open",
+		"--json", "number,url",
+		"--limit", "1",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check for existing PR: %w", err)
+	}
+
+	var prs []struct {
+		Number int    `json:"number"`
+		URL    string `json:"url"`
+	}
+	if err := json.Unmarshal([]byte(output), &prs); err != nil {
+		return nil, fmt.Errorf("failed to parse PR list: %w", err)
+	}
+	if len(prs) == 0 {
+		return nil, nil // no existing PR
+	}
+
+	return &PRResult{
+		Number: prs[0].Number,
+		URL:    prs[0].URL,
+		Action: "updated",
+	}, nil
+}
+
 // extractPRNumber parses a PR number from a GitHub PR URL.
 func extractPRNumber(prURL string) int {
 	parts := strings.Split(prURL, "/")
