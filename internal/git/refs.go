@@ -5,17 +5,33 @@ import (
 	"strings"
 )
 
+// BranchRefSeparator is the string used to encode "/" in branch names for ref paths.
+const BranchRefSeparator = "--"
+
 // EncodeBranchRef encodes a branch name for use in a ref path.
 // Slashes in branch names are replaced with "--" to avoid git ref
 // directory conflicts (e.g., "feat/auth" cannot coexist with "feat/auth/ui"
 // as refs because one would be both a file and a directory).
+//
+// Note: branch names containing "--" will collide with encoded "/" separators.
+// Use ValidateBranchForRefEncoding to check before tracking.
 func EncodeBranchRef(branch string) string {
-	return strings.ReplaceAll(branch, "/", "--")
+	return strings.ReplaceAll(branch, "/", BranchRefSeparator)
 }
 
 // DecodeBranchRef decodes a ref-encoded branch name back to the original.
 func DecodeBranchRef(encoded string) string {
-	return strings.ReplaceAll(encoded, "--", "/")
+	return strings.ReplaceAll(encoded, BranchRefSeparator, "/")
+}
+
+// ValidateBranchForRefEncoding checks if a branch name can be safely
+// encoded for ref storage. Returns an error if the name contains "--"
+// which would collide with the "/" encoding separator.
+func ValidateBranchForRefEncoding(branch string) error {
+	if strings.Contains(branch, BranchRefSeparator) {
+		return fmt.Errorf("branch name %q contains %q which conflicts with gs ref encoding (slashes are encoded as %q)", branch, BranchRefSeparator, BranchRefSeparator)
+	}
+	return nil
 }
 
 // WriteRef stores data as a blob in git's object database and points a ref at it.

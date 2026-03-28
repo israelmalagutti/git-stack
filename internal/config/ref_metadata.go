@@ -24,6 +24,10 @@ const metaRefPrefix = "meta/"
 
 // WriteRefBranchMeta writes one branch's metadata to refs/gs/meta/<encoded-branch>.
 func WriteRefBranchMeta(repo *git.Repo, branch string, meta *BranchMetadata) error {
+	if err := git.ValidateBranchForRefEncoding(branch); err != nil {
+		return err
+	}
+
 	data, err := json.Marshal(meta)
 	if err != nil {
 		return fmt.Errorf("failed to marshal branch metadata for %s: %w", branch, err)

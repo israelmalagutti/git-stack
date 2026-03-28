@@ -62,6 +62,26 @@ func TestEncodeDecodeRoundTrip(t *testing.T) {
 	}
 }
 
+func TestValidateBranchForRefEncoding(t *testing.T) {
+	t.Run("accepts normal branch names", func(t *testing.T) {
+		valid := []string{"main", "feat-auth", "feat/auth", "release/v1.0/hotfix", "fix-123"}
+		for _, name := range valid {
+			if err := ValidateBranchForRefEncoding(name); err != nil {
+				t.Errorf("expected %q to be valid, got error: %v", name, err)
+			}
+		}
+	})
+
+	t.Run("rejects branch names with double dash", func(t *testing.T) {
+		invalid := []string{"feat--auth", "my--branch--name", "--leading", "trailing--"}
+		for _, name := range invalid {
+			if err := ValidateBranchForRefEncoding(name); err == nil {
+				t.Errorf("expected %q to be rejected", name)
+			}
+		}
+	})
+}
+
 func TestWriteAndReadRef(t *testing.T) {
 	_, cleanup := setupTestRepo(t)
 	defer cleanup()
