@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/israelmalagutti/git-stack/internal/repair"
 	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -21,6 +22,7 @@ func registerWriteTools(s *server.MCPServer) {
 	s.AddTool(modifyTool, handleModify)
 	s.AddTool(moveTool, handleMove)
 	s.AddTool(foldTool, handleFold)
+	s.AddTool(repairTool, handleRepair)
 }
 
 // --- gs_checkout ---
@@ -1148,5 +1150,98 @@ func handleFold(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 		Into:       parentBranch,
 		Kept:       keep,
 		Reparented: reparented,
+	})
+}
+
+// --- gs_repair ---
+
+var repairTool = mcp.NewTool("gs_repair",
+	mcp.WithDescription(`Scan stack metadata for inconsistencies and optionally fix them.
+
+Checks for: orphaned refs (branch deleted but ref remains), missing parents,
+circular parent chains, ref/JSON mismatches.
+
+Defaults to dry-run mode (report only). Pass fix=true to apply fixes.
+Never deletes branches — only cleans up refs and metadata entries.
+
+Returns: {issues_found[], issues_fixed[], remaining[]}`),
+	mcp.WithBoolean("fix",
+		mcp.Description("If true, apply fixes. Default is false (dry-run)."),
+	),
+)
+
+type repairIssueJSON struct {
+	Kind        string `json:"kind"`
+	Branch      string `json:"branch"`
+	Description string `json:"description"`
+	Fix         string `json:"fix"`
+}
+
+type repairResponse struct {
+	IssuesFound []repairIssueJSON `json:"issues_found"`
+	IssuesFixed []repairIssueJSON `json:"issues_fixed"`
+	Remaining   []repairIssueJSON `json:"remaining"`
+}
+
+func issueToJSON(iss repair.Issue) repairIssueJSON {
+	return repairIssueJSON{
+		Kind:        string(iss.Kind),
+		Branch:      iss.Branch,
+		Description: iss.Description,
+		Fix:         iss.Fix,
+	}
+}
+
+func handleRepair(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	fix := req.GetBool("fix", false)
+
+	state, err := loadRepoState()
+	if err != nil {
+		return errResult(err.Error()), nil
+	}
+
+	issues, err := repair.DetectIssues(state.Repo, state.Metadata, state.Config)
+	if err != nil {
+		return errResult(fmt.Sprintf("failed to scan for issues: %v", err)), nil
+	}
+
+	allIssues := make([]repairIssueJSON, len(issues))
+	for i, iss := range issues {
+		allIssues[i] = issueToJSON(iss)
+	}
+
+	if !fix {
+		return jsonResult(repairResponse{
+			IssuesFound: allIssues,
+			IssuesFixed: []repairIssueJSON{},
+			Remaining:   allIssues,
+		})
+	}
+
+	var fixed, remaining []repairIssueJSON
+	for _, iss := range issues {
+		if err := repair.ApplyFix(state.Repo, state.Metadata, state.Config, iss); err != nil {
+			remaining = append(remaining, issueToJSON(iss))
+		} else {
+			fixed = append(fixed, issueToJSON(iss))
+		}
+	}
+
+	if len(fixed) > 0 {
+		_ = state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath())
+		pushMetadataRefs(state.Repo)
+	}
+
+	if fixed == nil {
+		fixed = []repairIssueJSON{}
+	}
+	if remaining == nil {
+		remaining = []repairIssueJSON{}
+	}
+
+	return jsonResult(repairResponse{
+		IssuesFound: allIssues,
+		IssuesFixed: fixed,
+		Remaining:   remaining,
 	})
 }
