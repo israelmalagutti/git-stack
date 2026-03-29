@@ -34,7 +34,11 @@ Thumbs.db
 
 # Temporary files
 tmp/
+tmp-*
 temp/
+
+# Node
+package-lock.json
 
 # AI markdowns
 ai-context/
