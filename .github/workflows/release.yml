@@ -51,6 +51,9 @@ jobs:
   npm-publish:
     needs: release
     runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -67,6 +70,4 @@ jobs:
           cd npm && npm version "$VERSION" --no-git-tag-version
 
       - name: Publish to npm
-        run: cd npm && npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: cd npm && npm publish --access public --provenance
