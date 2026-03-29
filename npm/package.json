@@ -1,6 +1,6 @@
 {
   "name": "@gitstack/cli",
-  "version": "0.10.1",
+  "version": "0.0.0",
   "description": "CLI tool for managing stacked branches in git",
   "bin": {
     "gs": "bin/gs.js"
