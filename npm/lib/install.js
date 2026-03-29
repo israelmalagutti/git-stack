@@ -1,10 +1,11 @@
 "use strict";
 
 const https = require("https");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
-const { getPlatformInfo, getDownloadUrl, getBinaryPath } = require("./platform");
+const { getPlatformInfo, getVersion, getDownloadUrl, getBinaryPath } = require("./platform");
 
 function followRedirects(url, maxRedirects = 5) {
   return new Promise((resolve, reject) => {
@@ -13,8 +14,12 @@ function followRedirects(url, maxRedirects = 5) {
       return;
     }
 
-    const proto = url.startsWith("https") ? https : require("http");
-    proto
+    if (!url.startsWith("https://")) {
+      reject(new Error(`Refusing non-HTTPS URL: ${url}`));
+      return;
+    }
+
+    https
       .get(url, { headers: { "User-Agent": "gitstack-cli-npm" } }, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           followRedirects(res.headers.location, maxRedirects - 1)
@@ -49,12 +54,58 @@ async function download(url, dest) {
   });
 }
 
-async function extractTarGz(archivePath, destDir) {
+function sha256(filePath) {
+  const data = fs.readFileSync(filePath);
+  return crypto.createHash("sha256").update(data).digest("hex");
+}
+
+async function verifyChecksum(archivePath, expectedFilename) {
+  const version = getVersion();
+  const checksumsUrl = `https://github.com/israelmalagutti/git-stack/releases/download/v${version}/checksums.txt`;
+  const tmpChecksums = archivePath + ".checksums";
+
+  try {
+    await download(checksumsUrl, tmpChecksums);
+    const content = fs.readFileSync(tmpChecksums, "utf8");
+    const lines = content.trim().split("\n");
+
+    for (const line of lines) {
+      const [hash, filename] = line.trim().split(/\s+/);
+      if (filename === expectedFilename) {
+        const actual = sha256(archivePath);
+        if (actual !== hash) {
+          throw new Error(
+            `Checksum mismatch for ${expectedFilename}: expected ${hash}, got ${actual}`
+          );
+        }
+        return;
+      }
+    }
+
+    console.warn(`Warning: ${expectedFilename} not found in checksums.txt, skipping verification.`);
+  } catch (err) {
+    if (err.message.startsWith("Checksum mismatch")) {
+      throw err;
+    }
+    console.warn(`Warning: Could not verify checksum: ${err.message}`);
+  } finally {
+    try { fs.unlinkSync(tmpChecksums); } catch {}
+  }
+}
+
+function extractTarGz(archivePath, destDir) {
   execSync(`tar -xzf "${archivePath}" -C "${destDir}"`, { stdio: "pipe" });
 }
 
-async function extractZip(archivePath, destDir) {
-  execSync(`unzip -o "${archivePath}" -d "${destDir}"`, { stdio: "pipe" });
+function extractZip(archivePath, destDir) {
+  if (process.platform === "win32") {
+    execSync(
+      `powershell -Command "Expand-Archive -Path '${archivePath}' -DestinationPath '${destDir}' -Force"`,
+      { stdio: "pipe" }
+    );
+  } else {
+    execSync(`unzip -o "${archivePath}" -d "${destDir}"`, { stdio: "pipe" });
+  }
 }
 
 async function install() {
@@ -69,16 +120,20 @@ async function install() {
   const url = getDownloadUrl();
   const tmpDir = fs.mkdtempSync(path.join(require("os").tmpdir(), "gs-"));
   const archivePath = path.join(tmpDir, `gs${archiveExt}`);
+  const archiveFilename = `gs-${platform}-${arch}${archiveExt}`;
 
   try {
     console.log(`Downloading gs binary from ${url}...`);
     await download(url, archivePath);
 
+    // Verify checksum against GitHub Release checksums.txt
+    await verifyChecksum(archivePath, archiveFilename);
+
     // Extract archive
     if (archiveExt === ".zip") {
-      await extractZip(archivePath, tmpDir);
+      extractZip(archivePath, tmpDir);
     } else {
-      await extractTarGz(archivePath, tmpDir);
+      extractTarGz(archivePath, tmpDir);
     }
 
     // Find the gs binary in extracted files
