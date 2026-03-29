@@ -33,8 +33,13 @@ async function main() {
   try {
     execFileSync(binaryPath, args, { stdio: "inherit" });
   } catch (err) {
-    // execFileSync throws on non-zero exit code
-    process.exitCode = err.status || 1;
+    if (err.status != null) {
+      process.exitCode = err.status;
+    } else if (err.signal) {
+      process.kill(process.pid, err.signal);
+    } else {
+      process.exitCode = 1;
+    }
   }
 }
 
