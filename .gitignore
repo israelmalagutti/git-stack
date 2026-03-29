@@ -1,6 +1,7 @@
 # Binaries
 gs
 bin/
+!npm/bin/
 dist/
 *.exe
 *.exe~
@@ -33,7 +34,11 @@ Thumbs.db
 
 # Temporary files
 tmp/
+tmp-*
 temp/
+
+# Node
+package-lock.json
 
 # AI markdowns
 ai-context/

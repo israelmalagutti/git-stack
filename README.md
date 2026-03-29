@@ -14,19 +14,32 @@ A fast, simple git stack management CLI tool for working with stacked diffs (sta
 
 ## Installation
 
-### From Release (Recommended)
+### npx (no install needed)
+
+```bash
+npx @gitstack/cli
+```
+
+### Homebrew (macOS / Linux)
+
+```bash
+brew tap israelmalagutti/tap
+brew install gs
+```
+
+### Go
+
+```bash
+go install github.com/israelmalagutti/git-stack@latest
+```
+
+### Shell script
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/israelmalagutti/git-stack/main/scripts/install.sh | bash
 ```
 
-Or specify a version:
-
-```bash
-GS_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/israelmalagutti/git-stack/main/scripts/install.sh | bash
-```
-
-### From Source
+### From source
 
 ```bash
 git clone https://github.com/israelmalagutti/git-stack.git
@@ -34,9 +47,11 @@ cd git-stack
 make install
 ```
 
-### Manual Download
+### MCP for Claude Code (zero-install)
 
-Download the appropriate binary from the [releases page](https://github.com/israelmalagutti/git-stack/releases) and add it to your PATH.
+```bash
+claude mcp add gs -- npx @gitstack/cli mcp
+```
 
 ## Quick Start
 
@@ -126,11 +141,8 @@ gs split -n base         # Specify new branch name
 # Build for current platform
 make build
 
-# Build for all platforms
-make build-all
-
-# Create release archives with checksums
-make release
+# GoReleaser snapshot (all platforms, no publish)
+make release-dry-run
 ```
 
 ### Makefile Targets
@@ -138,10 +150,9 @@ make release
 | Target | Description |
 |--------|-------------|
 | `make build` | Build binary with version injection |
-| `make build-all` | Cross-platform builds (Linux/macOS/Windows) |
-| `make release` | Build all + create archives + checksums |
 | `make install` | Build and install to /usr/local/bin |
 | `make uninstall` | Remove from /usr/local/bin |
+| `make release-dry-run` | GoReleaser snapshot (all platforms, no publish) |
 | `make clean` | Remove build artifacts |
 | `make test` | Run tests |
 | `make test-coverage` | Run tests with HTML coverage report |

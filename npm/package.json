@@ -1,0 +1,39 @@
+{
+  "name": "@gitstack/cli",
+  "version": "0.0.0",
+  "description": "CLI tool for managing stacked branches in git",
+  "bin": {
+    "gs": "bin/gs.js"
+  },
+  "scripts": {
+    "postinstall": "node lib/install.js"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/israelmalagutti/git-stack"
+  },
+  "keywords": [
+    "git",
+    "stacked-diffs",
+    "stacked-prs",
+    "stacked-branches",
+    "cli",
+    "mcp"
+  ],
+  "license": "MIT"
+}

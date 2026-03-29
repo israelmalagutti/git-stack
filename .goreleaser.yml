@@ -1,0 +1,49 @@
+version: 2
+
+project_name: gs
+
+builds:
+  - main: .
+    binary: gs
+    ldflags:
+      - -s -w
+      - -X github.com/israelmalagutti/git-stack/cmd.Version={{.Version}}
+      - -X github.com/israelmalagutti/git-stack/cmd.Commit={{.ShortCommit}}
+      - -X github.com/israelmalagutti/git-stack/cmd.BuildDate={{.Date}}
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+archives:
+  - name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+release:
+  github:
+    owner: israelmalagutti
+    name: git-stack
+  draft: false
+  prerelease: auto
+
+homebrew_casks:
+  - repository:
+      owner: israelmalagutti
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    name: gs
+    homepage: "https://github.com/israelmalagutti/git-stack"
+    description: "CLI tool for managing stacked branches in git"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/gs"]
+          end
+
+changelog:
+  use: github-native

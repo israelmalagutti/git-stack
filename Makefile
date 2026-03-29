@@ -1,4 +1,4 @@
-.PHONY: build build-all install clean test release help
+.PHONY: build install clean test release-dry-run help
 
 # Binary name
 BINARY_NAME=gs
@@ -18,42 +18,9 @@ build:
 	@go build $(LDFLAGS) -o bin/$(BINARY_NAME) .
 	@echo "✓ Binary built at bin/$(BINARY_NAME)"
 
-# Build for all platforms
-build-all: clean
-	@echo "Building $(BINARY_NAME) $(VERSION) for all platforms..."
-	@mkdir -p dist
-
-	@echo "  → linux/amd64"
-	@GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-linux-amd64 .
-
-	@echo "  → linux/arm64"
-	@GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-linux-arm64 .
-
-	@echo "  → darwin/amd64"
-	@GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-darwin-amd64 .
-
-	@echo "  → darwin/arm64"
-	@GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-darwin-arm64 .
-
-	@echo "  → windows/amd64"
-	@GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-windows-amd64.exe .
-
-	@echo "✓ All binaries built in dist/"
-
-# Create release archives
-release: build-all
-	@echo "Creating release archives..."
-	@cd dist && for f in $(BINARY_NAME)-*; do \
-		if [ -f "$$f" ]; then \
-			if echo "$$f" | grep -q ".exe"; then \
-				zip "$${f%.exe}.zip" "$$f"; \
-			else \
-				tar -czf "$$f.tar.gz" "$$f"; \
-			fi \
-		fi \
-	done
-	@cd dist && sha256sum *.tar.gz *.zip > checksums.txt 2>/dev/null || shasum -a 256 *.tar.gz *.zip > checksums.txt
-	@echo "✓ Release archives created with checksums"
+# Dry-run release locally (builds all platforms, creates archives, generates Homebrew formula)
+release-dry-run:
+	@goreleaser release --snapshot --clean
 
 # Build and install to /usr/local/bin
 install: build
@@ -107,13 +74,12 @@ version:
 help:
 	@echo "gs $(VERSION) - Makefile targets:"
 	@echo ""
-	@echo "  make build        - Build binary for current platform"
-	@echo "  make build-all    - Build for Linux, macOS, Windows (amd64/arm64)"
-	@echo "  make release      - Build all + create archives with checksums"
-	@echo "  make install      - Build and install to /usr/local/bin"
-	@echo "  make uninstall    - Remove from /usr/local/bin"
-	@echo "  make clean        - Remove build artifacts"
-	@echo "  make test         - Run tests"
-	@echo "  make test-coverage- Run tests with coverage report"
-	@echo "  make lint         - Run golangci-lint"
-	@echo "  make version      - Show version info"
+	@echo "  make build           - Build binary for current platform"
+	@echo "  make install         - Build and install to /usr/local/bin"
+	@echo "  make uninstall       - Remove from /usr/local/bin"
+	@echo "  make release-dry-run - GoReleaser snapshot (all platforms, no publish)"
+	@echo "  make clean           - Remove build artifacts"
+	@echo "  make test            - Run tests"
+	@echo "  make test-coverage   - Run tests with coverage report"
+	@echo "  make lint            - Run golangci-lint"
+	@echo "  make version         - Show version info"
