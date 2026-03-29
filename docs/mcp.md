@@ -80,7 +80,19 @@ This separation means:
 gs mcp
 ```
 
-The AI client (e.g., Claude Code) launches this as a subprocess. Configuration example for `~/.claude/settings.json`:
+The AI client (e.g., Claude Code) launches this as a subprocess.
+
+#### Zero-install setup (recommended)
+
+```bash
+claude mcp add gs -- npx @gitstack/cli mcp
+```
+
+This uses npx to download and run `gs` on demand — no global install required.
+
+#### Manual setup
+
+If `gs` is already installed, add to `~/.claude/settings.json`:
 
 ```json
 {
