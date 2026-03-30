@@ -242,6 +242,44 @@ func TestDeleteRemoteBranchMeta(t *testing.T) {
 	}
 }
 
+func TestPushConfig(t *testing.T) {
+	localRepo, otherRepo, cleanup := setupRemoteRefTestRepos(t)
+	defer cleanup()
+
+	// Write config locally
+	cfg := NewConfig("main")
+	if err := WriteRefConfig(localRepo, cfg); err != nil {
+		t.Fatalf("WriteRefConfig failed: %v", err)
+	}
+
+	// Push config to remote
+	if err := PushConfig(localRepo, "origin"); err != nil {
+		t.Fatalf("PushConfig failed: %v", err)
+	}
+
+	// Bob fetches and reads config
+	otherDir := otherRepo.GetWorkDir()
+	if err := os.Chdir(otherDir); err != nil {
+		t.Fatalf("failed to chdir to other: %v", err)
+	}
+
+	if err := FetchAllRefs(otherRepo, "origin"); err != nil {
+		t.Fatalf("FetchAllRefs failed: %v", err)
+	}
+
+	gotCfg, err := ReadRefConfig(otherRepo)
+	if err != nil {
+		t.Fatalf("ReadRefConfig (other) failed: %v", err)
+	}
+
+	if gotCfg.Trunk != "main" {
+		t.Errorf("expected trunk 'main', got %q", gotCfg.Trunk)
+	}
+	if gotCfg.Version != "1.0.0" {
+		t.Errorf("expected version '1.0.0', got %q", gotCfg.Version)
+	}
+}
+
 func TestConfigureRemoteRefspec(t *testing.T) {
 	localRepo, _, cleanup := setupRemoteRefTestRepos(t)
 	defer cleanup()
@@ -257,5 +295,123 @@ func TestConfigureRemoteRefspec(t *testing.T) {
 	}
 	if !has {
 		t.Error("expected gs refspec to be configured")
+	}
+
+	// Calling again should be idempotent
+	if err := ConfigureRemoteRefspec(localRepo, "origin"); err != nil {
+		t.Fatalf("ConfigureRemoteRefspec (idempotent) failed: %v", err)
+	}
+}
+
+func TestSaveWithRefsCleanup(t *testing.T) {
+	localRepo, _, cleanup := setupRemoteRefTestRepos(t)
+	defer cleanup()
+
+	localDir := localRepo.GetWorkDir()
+	metaPath := filepath.Join(localDir, ".gs_stack_metadata")
+
+	meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
+	meta.TrackBranch("feat/one", "main", "")
+	meta.TrackBranch("feat/two", "feat/one", "")
+
+	// SaveWithRefs writes both JSON and refs
+	if err := meta.SaveWithRefs(localRepo, metaPath); err != nil {
+		t.Fatalf("SaveWithRefs failed: %v", err)
+	}
+
+	// Verify JSON file was written
+	loaded, err := LoadMetadata(metaPath)
+	if err != nil {
+		t.Fatalf("LoadMetadata failed: %v", err)
+	}
+	if len(loaded.Branches) != 2 {
+		t.Errorf("expected 2 branches in JSON, got %d", len(loaded.Branches))
+	}
+
+	// Verify refs were written
+	allMeta, err := ReadAllRefMeta(localRepo)
+	if err != nil {
+		t.Fatalf("ReadAllRefMeta failed: %v", err)
+	}
+	if len(allMeta) != 2 {
+		t.Errorf("expected 2 branches in refs, got %d", len(allMeta))
+	}
+
+	// Now remove a branch and save again -- stale ref should be cleaned
+	meta.UntrackBranch("feat/two")
+	if err := meta.SaveWithRefs(localRepo, metaPath); err != nil {
+		t.Fatalf("SaveWithRefs (after untrack) failed: %v", err)
+	}
+
+	allMeta, err = ReadAllRefMeta(localRepo)
+	if err != nil {
+		t.Fatalf("ReadAllRefMeta after cleanup failed: %v", err)
+	}
+	if _, found := allMeta["feat/two"]; found {
+		t.Error("expected feat/two ref to be cleaned up after untrack")
+	}
+}
+
+func TestWriteRefBranchMetaValidation(t *testing.T) {
+	localRepo, _, cleanup := setupRemoteRefTestRepos(t)
+	defer cleanup()
+
+	// Branch name with "--" should fail validation
+	meta := &BranchMetadata{Parent: "main", Tracked: true}
+	err := WriteRefBranchMeta(localRepo, "feat--bad", meta)
+	if err == nil {
+		t.Error("expected error for branch name containing --")
+	}
+}
+
+func TestLoadMetadataWithRefsFallback(t *testing.T) {
+	localRepo, _, cleanup := setupRemoteRefTestRepos(t)
+	defer cleanup()
+
+	localDir := localRepo.GetWorkDir()
+	metaPath := filepath.Join(localDir, ".gs_stack_metadata")
+
+	// No refs and no JSON -- should return empty
+	meta, source, err := LoadMetadataWithRefs(localRepo, metaPath)
+	if err != nil {
+		t.Fatalf("LoadMetadataWithRefs failed: %v", err)
+	}
+	if source != SourceEmpty {
+		t.Errorf("expected SourceEmpty, got %d", source)
+	}
+	if len(meta.Branches) != 0 {
+		t.Errorf("expected 0 branches, got %d", len(meta.Branches))
+	}
+
+	// Write JSON metadata (no refs)
+	jsonMeta := &Metadata{Branches: make(map[string]*BranchMetadata)}
+	jsonMeta.TrackBranch("json-feat", "main", "")
+	if err := jsonMeta.Save(metaPath); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	meta, source, err = LoadMetadataWithRefs(localRepo, metaPath)
+	if err != nil {
+		t.Fatalf("LoadMetadataWithRefs failed: %v", err)
+	}
+	if source != SourceJSON {
+		t.Errorf("expected SourceJSON, got %d", source)
+	}
+	if !meta.IsTracked("json-feat") {
+		t.Error("expected json-feat to be tracked")
+	}
+
+	// Write refs -- should prefer refs over JSON
+	refMeta := &BranchMetadata{Parent: "main", Tracked: true}
+	if err := WriteRefBranchMeta(localRepo, "ref/feat", refMeta); err != nil {
+		t.Fatalf("WriteRefBranchMeta failed: %v", err)
+	}
+
+	meta, source, err = LoadMetadataWithRefs(localRepo, metaPath)
+	if err != nil {
+		t.Fatalf("LoadMetadataWithRefs failed: %v", err)
+	}
+	if source != SourceRefs {
+		t.Errorf("expected SourceRefs, got %d", source)
 	}
 }

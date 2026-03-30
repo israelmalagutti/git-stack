@@ -51,6 +51,25 @@ func TestConfig(t *testing.T) {
 		}
 	})
 
+	t.Run("Save to invalid path fails", func(t *testing.T) {
+		cfg := NewConfig("main")
+		err := cfg.Save(filepath.Join(tmpDir, "nonexistent-dir", "config"))
+		if err == nil {
+			t.Error("expected error saving to nonexistent directory")
+		}
+	})
+
+	t.Run("Load invalid JSON config", func(t *testing.T) {
+		badCfgPath := filepath.Join(tmpDir, "bad_config")
+		if err := os.WriteFile(badCfgPath, []byte("{bad"), 0644); err != nil {
+			t.Fatalf("WriteFile failed: %v", err)
+		}
+		_, err := Load(badCfgPath)
+		if err == nil {
+			t.Error("expected error for invalid JSON config")
+		}
+	})
+
 	t.Run("IsInitialized returns false for nonexistent", func(t *testing.T) {
 		if IsInitialized(filepath.Join(tmpDir, "nope")) {
 			t.Error("should return false for nonexistent path")
@@ -194,6 +213,124 @@ func TestMetadata(t *testing.T) {
 		_, ok := meta.GetParent("nonexistent")
 		if ok {
 			t.Error("should return false for untracked branch")
+		}
+	})
+
+	t.Run("LoadMetadata with invalid JSON", func(t *testing.T) {
+		badPath := filepath.Join(tmpDir, "bad_metadata")
+		if err := os.WriteFile(badPath, []byte("{invalid json"), 0644); err != nil {
+			t.Fatalf("WriteFile failed: %v", err)
+		}
+
+		_, err := LoadMetadata(badPath)
+		if err == nil {
+			t.Error("expected error for invalid JSON metadata")
+		}
+	})
+
+	t.Run("LoadMetadata with null branches", func(t *testing.T) {
+		nullPath := filepath.Join(tmpDir, "null_branches_metadata")
+		if err := os.WriteFile(nullPath, []byte(`{"branches": null}`), 0644); err != nil {
+			t.Fatalf("WriteFile failed: %v", err)
+		}
+
+		meta, err := LoadMetadata(nullPath)
+		if err != nil {
+			t.Fatalf("LoadMetadata failed: %v", err)
+		}
+		if meta.Branches == nil {
+			t.Error("expected Branches map to be initialized even when null in JSON")
+		}
+	})
+
+	t.Run("SetParentRevision and GetParentRevision", func(t *testing.T) {
+		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
+		meta.TrackBranch("feat-rev", "main", "")
+
+		if err := meta.SetParentRevision("feat-rev", "abc123"); err != nil {
+			t.Fatalf("SetParentRevision failed: %v", err)
+		}
+
+		got := meta.GetParentRevision("feat-rev")
+		if got != "abc123" {
+			t.Errorf("expected 'abc123', got %q", got)
+		}
+	})
+
+	t.Run("SetParentRevision fails for untracked", func(t *testing.T) {
+		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
+
+		err := meta.SetParentRevision("nonexistent", "abc123")
+		if err == nil {
+			t.Error("expected error for untracked branch")
+		}
+	})
+
+	t.Run("GetParentRevision returns empty for untracked", func(t *testing.T) {
+		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
+
+		got := meta.GetParentRevision("nonexistent")
+		if got != "" {
+			t.Errorf("expected empty string, got %q", got)
+		}
+	})
+
+	t.Run("Save to invalid path fails", func(t *testing.T) {
+		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
+		err := meta.Save(filepath.Join(tmpDir, "nonexistent-dir", "metadata"))
+		if err == nil {
+			t.Error("expected error saving to nonexistent directory")
+		}
+	})
+
+	t.Run("SetPR and GetPR round-trip", func(t *testing.T) {
+		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
+		meta.TrackBranch("feat-pr", "main", "")
+
+		pr := &PRInfo{Number: 42, Provider: "github"}
+		err := meta.SetPR("feat-pr", pr)
+		if err != nil {
+			t.Fatalf("SetPR failed: %v", err)
+		}
+
+		got := meta.GetPR("feat-pr")
+		if got == nil {
+			t.Fatal("GetPR returned nil")
+		}
+		if got.Number != 42 {
+			t.Errorf("expected PR number 42, got %d", got.Number)
+		}
+		if got.Provider != "github" {
+			t.Errorf("expected provider 'github', got %q", got.Provider)
+		}
+	})
+
+	t.Run("SetPR fails for untracked branch", func(t *testing.T) {
+		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
+
+		pr := &PRInfo{Number: 1, Provider: "github"}
+		err := meta.SetPR("untracked", pr)
+		if err == nil {
+			t.Error("expected error for untracked branch")
+		}
+	})
+
+	t.Run("GetPR returns nil for untracked branch", func(t *testing.T) {
+		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
+
+		got := meta.GetPR("nonexistent")
+		if got != nil {
+			t.Errorf("expected nil for untracked branch, got %+v", got)
+		}
+	})
+
+	t.Run("GetPR returns nil when no PR set", func(t *testing.T) {
+		meta := &Metadata{Branches: make(map[string]*BranchMetadata)}
+		meta.TrackBranch("feat-no-pr", "main", "")
+
+		got := meta.GetPR("feat-no-pr")
+		if got != nil {
+			t.Errorf("expected nil when no PR set, got %+v", got)
 		}
 	})
 }

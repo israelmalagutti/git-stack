@@ -13,6 +13,16 @@ type GitHubProvider struct {
 	host  string // e.g., "github.com" or GHE hostname
 	owner string
 	repo  string
+
+	// RunGHOverride, if set, replaces the default gh CLI execution.
+	// Used in tests to avoid requiring gh to be installed.
+	RunGHOverride func(args ...string) (string, error)
+
+	// CLIAvailableOverride, if set, overrides the CLIAvailable check.
+	CLIAvailableOverride *bool
+
+	// CLIAuthenticatedOverride, if set, overrides the CLIAuthenticated check.
+	CLIAuthenticatedOverride *bool
 }
 
 // NewGitHubProvider creates a GitHubProvider for the given host/owner/repo.
@@ -23,11 +33,17 @@ func NewGitHubProvider(host, owner, repo string) *GitHubProvider {
 func (g *GitHubProvider) Name() string { return "github" }
 
 func (g *GitHubProvider) CLIAvailable() bool {
+	if g.CLIAvailableOverride != nil {
+		return *g.CLIAvailableOverride
+	}
 	_, err := exec.LookPath("gh")
 	return err == nil
 }
 
 func (g *GitHubProvider) CLIAuthenticated() bool {
+	if g.CLIAuthenticatedOverride != nil {
+		return *g.CLIAuthenticatedOverride
+	}
 	cmd := exec.Command("gh", "auth", "status", "--hostname", g.host)
 	return cmd.Run() == nil
 }
@@ -38,6 +54,10 @@ func (g *GitHubProvider) repoFlag() string {
 
 // runGH executes a gh command with --repo prepended and returns stdout.
 func (g *GitHubProvider) runGH(args ...string) (string, error) {
+	if g.RunGHOverride != nil {
+		return g.RunGHOverride(args...)
+	}
+
 	fullArgs := append([]string{}, args...)
 
 	cmd := exec.Command("gh", fullArgs...)

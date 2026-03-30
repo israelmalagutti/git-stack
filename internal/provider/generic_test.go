@@ -63,4 +63,14 @@ func TestGenericProvider(t *testing.T) {
 			t.Errorf("expected ErrNotSupported, got: %v", err)
 		}
 	})
+
+	t.Run("FindExistingPR returns ErrNotSupported", func(t *testing.T) {
+		result, err := g.FindExistingPR("feat/auth")
+		if result != nil {
+			t.Errorf("expected nil result, got: %v", result)
+		}
+		if !errors.Is(err, ErrNotSupported) {
+			t.Errorf("expected ErrNotSupported, got: %v", err)
+		}
+	})
 }
