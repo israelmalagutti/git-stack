@@ -65,14 +65,8 @@ func runFold(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	// Don't fold trunk
-	if currentBranch == cfg.Trunk {
-		return fmt.Errorf("cannot fold trunk branch")
-	}
-
-	// Check if current branch is tracked
-	if !metadata.IsTracked(currentBranch) {
-		return fmt.Errorf("branch '%s' is not tracked by gs", currentBranch)
+	if err := validateNotTrunkAndTracked(metadata, currentBranch, cfg.Trunk, "fold"); err != nil {
+		return err
 	}
 
 	// Get parent branch

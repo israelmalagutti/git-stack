@@ -74,14 +74,8 @@ func runSplit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	// Cannot split trunk
-	if currentBranch == cfg.Trunk {
-		return fmt.Errorf("cannot split trunk branch")
-	}
-
-	// Must be tracked
-	if !metadata.IsTracked(currentBranch) {
-		return fmt.Errorf("branch '%s' is not tracked by gs", currentBranch)
+	if err := validateNotTrunkAndTracked(metadata, currentBranch, cfg.Trunk, "split"); err != nil {
+		return err
 	}
 
 	// Get parent branch

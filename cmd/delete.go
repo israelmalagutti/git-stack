@@ -116,16 +116,12 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no branch specified")
 	}
 
-	if branchToDelete == cfg.Trunk {
-		return fmt.Errorf("cannot delete trunk branch")
+	if err := validateNotTrunkAndTracked(metadata, branchToDelete, cfg.Trunk, "delete"); err != nil {
+		return err
 	}
 
 	if !repo.BranchExists(branchToDelete) {
 		return fmt.Errorf("branch '%s' does not exist", branchToDelete)
-	}
-
-	if !metadata.IsTracked(branchToDelete) {
-		return fmt.Errorf("branch '%s' is not tracked by gs", branchToDelete)
 	}
 
 	// Build stack to get parent and children

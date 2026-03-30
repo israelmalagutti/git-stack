@@ -49,9 +49,8 @@ func runRename(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	// Can't rename trunk
-	if currentBranch == cfg.Trunk {
-		return fmt.Errorf("cannot rename trunk branch '%s'", cfg.Trunk)
+	if err := validateNotTrunk(currentBranch, cfg.Trunk, "rename"); err != nil {
+		return err
 	}
 
 	// Determine new name

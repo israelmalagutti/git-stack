@@ -75,14 +75,8 @@ func runMove(cmd *cobra.Command, args []string) error {
 		sourceBranch = currentBranch
 	}
 
-	// Don't move trunk
-	if sourceBranch == cfg.Trunk {
-		return fmt.Errorf("cannot move trunk branch")
-	}
-
-	// Check if source branch is tracked
-	if !metadata.IsTracked(sourceBranch) {
-		return fmt.Errorf("branch '%s' is not tracked by gs", sourceBranch)
+	if err := validateNotTrunkAndTracked(metadata, sourceBranch, cfg.Trunk, "move"); err != nil {
+		return err
 	}
 
 	// Determine target branch
