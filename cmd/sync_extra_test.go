@@ -210,3 +210,121 @@ func TestSyncTrunkWithRemoteConfirmSkip(t *testing.T) {
 		}
 	})
 }
+
+func TestCleanRemoteDeletedBranches(t *testing.T) {
+	localDir, _, cleanup := setupRepoWithRemote(t)
+	defer cleanup()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+	if err := os.Chdir(localDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	repo, err := git.NewRepo()
+	if err != nil {
+		t.Fatalf("failed to open repo: %v", err)
+	}
+	cfg := config.NewConfig("main")
+	metadata := &config.Metadata{Branches: map[string]*config.BranchMetadata{}}
+
+	// Create a branch, push it, track it
+	if err := repo.CreateBranch("feat-upstream-gone"); err != nil {
+		t.Fatalf("failed to create branch: %v", err)
+	}
+	if err := repo.CheckoutBranch("feat-upstream-gone"); err != nil {
+		t.Fatalf("failed to checkout: %v", err)
+	}
+	if _, err := repo.RunGitCommand("commit", "--allow-empty", "-m", "feat commit"); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+	if _, err := repo.RunGitCommand("push", "-u", "origin", "feat-upstream-gone"); err != nil {
+		t.Fatalf("failed to push branch: %v", err)
+	}
+	metadata.TrackBranch("feat-upstream-gone", "main", "")
+
+	// Delete remote branch and prune
+	if _, err := repo.RunGitCommand("push", "origin", "--delete", "feat-upstream-gone"); err != nil {
+		t.Fatalf("failed to delete remote branch: %v", err)
+	}
+	if err := repo.Fetch(); err != nil {
+		t.Fatalf("fetch failed: %v", err)
+	}
+
+	// Go back to main so the branch can be deleted
+	if err := repo.CheckoutBranch("main"); err != nil {
+		t.Fatalf("failed to checkout main: %v", err)
+	}
+
+	// Force mode should delete the branch
+	if err := cleanRemoteDeletedBranches(repo, metadata, cfg, true); err != nil {
+		t.Fatalf("cleanRemoteDeletedBranches failed: %v", err)
+	}
+
+	if metadata.IsTracked("feat-upstream-gone") {
+		t.Error("expected feat-upstream-gone to be untracked")
+	}
+	if repo.BranchExists("feat-upstream-gone") {
+		t.Error("expected feat-upstream-gone to be deleted from git")
+	}
+}
+
+func TestCleanRemoteDeletedBranchesPromptQuit(t *testing.T) {
+	localDir, _, cleanup := setupRepoWithRemote(t)
+	defer cleanup()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+	if err := os.Chdir(localDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	repo, err := git.NewRepo()
+	if err != nil {
+		t.Fatalf("failed to open repo: %v", err)
+	}
+	cfg := config.NewConfig("main")
+	metadata := &config.Metadata{Branches: map[string]*config.BranchMetadata{}}
+
+	// Create a branch, push it, track it, delete remote
+	if err := repo.CreateBranch("feat-quit-test"); err != nil {
+		t.Fatalf("failed to create branch: %v", err)
+	}
+	if err := repo.CheckoutBranch("feat-quit-test"); err != nil {
+		t.Fatalf("failed to checkout: %v", err)
+	}
+	if _, err := repo.RunGitCommand("commit", "--allow-empty", "-m", "feat"); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+	if _, err := repo.RunGitCommand("push", "-u", "origin", "feat-quit-test"); err != nil {
+		t.Fatalf("failed to push: %v", err)
+	}
+	metadata.TrackBranch("feat-quit-test", "main", "")
+
+	if _, err := repo.RunGitCommand("push", "origin", "--delete", "feat-quit-test"); err != nil {
+		t.Fatalf("failed to delete remote: %v", err)
+	}
+	if err := repo.Fetch(); err != nil {
+		t.Fatalf("fetch failed: %v", err)
+	}
+	if err := repo.CheckoutBranch("main"); err != nil {
+		t.Fatalf("failed to checkout main: %v", err)
+	}
+
+	// Quit prompt — branch should remain
+	withReadKey('q', func() {
+		if err := cleanRemoteDeletedBranches(repo, metadata, cfg, false); err != nil {
+			t.Fatalf("cleanRemoteDeletedBranches failed: %v", err)
+		}
+	})
+
+	if !metadata.IsTracked("feat-quit-test") {
+		t.Error("expected feat-quit-test to remain tracked after quit")
+	}
+}

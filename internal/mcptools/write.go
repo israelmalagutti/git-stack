@@ -1174,10 +1174,10 @@ var repairTool = mcp.NewTool("gs_repair",
 	mcp.WithDescription(`Scan stack metadata for inconsistencies and optionally fix them.
 
 Checks for: orphaned refs (branch deleted but ref remains), missing parents,
-circular parent chains, ref/JSON mismatches.
+circular parent chains, ref/JSON mismatches, remote-deleted branches (local exists
+but remote was deleted upstream).
 
 Defaults to dry-run mode (report only). Pass fix=true to apply fixes.
-Never deletes branches — only cleans up refs and metadata entries.
 
 Returns: {issues_found[], issues_fixed[], remaining[]}`),
 	mcp.WithBoolean("fix",
