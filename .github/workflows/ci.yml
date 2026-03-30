@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  COVERAGE_THRESHOLD: 90
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -37,5 +44,142 @@ jobs:
       - name: Build
         run: make build
 
-      - name: Test
-        run: go test -race ./...
+      - name: Test with coverage
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Generate coverage report
+        id: coverage
+        run: |
+          # Parse go tool cover output into per-package coverage
+          COVER_OUTPUT=$(go tool cover -func=coverage.out)
+
+          # Extract total coverage
+          TOTAL=$(echo "$COVER_OUTPUT" | grep '^total:' | awk '{print $NF}' | tr -d '%')
+
+          # Build per-package summary
+          declare -A pkg_stmts pkg_covered
+          while IFS= read -r line; do
+            [[ "$line" == total:* ]] && continue
+            file=$(echo "$line" | awk '{print $1}')
+            pkg=$(dirname "$file")
+            pct=$(echo "$line" | awk '{print $NF}' | tr -d '%')
+            # Count each function line as one unit
+            pkg_stmts["$pkg"]=$(( ${pkg_stmts["$pkg"]:-0} + 1 ))
+            if (( $(echo "$pct > 0" | bc -l) )); then
+              pkg_covered["$pkg"]=$(( ${pkg_covered["$pkg"]:-0} + 1 ))
+            fi
+          done <<< "$COVER_OUTPUT"
+
+          # Build markdown report
+          THRESHOLD=${{ env.COVERAGE_THRESHOLD }}
+
+          {
+            echo "COVERAGE_REPORT<<COVERAGE_EOF"
+            echo ""
+            echo "## Coverage Report"
+            echo ""
+            echo "| Package | Coverage | Status |"
+            echo "|---------|----------|--------|"
+
+            BELOW_THRESHOLD=""
+            for pkg in $(echo "${!pkg_stmts[@]}" | tr ' ' '\n' | sort); do
+              total=${pkg_stmts[$pkg]}
+              covered=${pkg_covered[$pkg]:-0}
+              if [ "$total" -gt 0 ]; then
+                pct=$(echo "scale=1; $covered * 100 / $total" | bc)
+              else
+                pct="100.0"
+              fi
+              short_pkg=$(echo "$pkg" | sed 's|github.com/israelmalagutti/git-stack/||')
+              if (( $(echo "$pct >= $THRESHOLD" | bc -l) )); then
+                status="pass"
+              else
+                status="fail"
+                BELOW_THRESHOLD="true"
+              fi
+              echo "| \`$short_pkg\` | ${pct}% | $([ "$status" = "pass" ] && echo "✅" || echo "❌") |"
+            done
+
+            echo ""
+            echo "**Total: ${TOTAL}%** $([ $(echo "$TOTAL >= $THRESHOLD" | bc -l) -eq 1 ] && echo "✅" || echo "❌")"
+            echo ""
+            echo "---"
+            echo "_Threshold: ${THRESHOLD}% · [Workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})_"
+            echo "COVERAGE_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+
+      - name: Add coverage to workflow summary
+        run: |
+          echo "${{ steps.coverage.outputs.COVERAGE_REPORT }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Append coverage to PR description
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const coverageReport = process.env.COVERAGE_REPORT;
+            const prNumber = context.issue.number;
+            const { owner, repo } = context.repo;
+
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const currentBody = pr.body || '';
+
+            // Marker to find/replace coverage section
+            const marker = '<!-- coverage-report -->';
+            const endMarker = '<!-- /coverage-report -->';
+            const section = `${marker}\n${coverageReport}\n${endMarker}`;
+
+            let newBody;
+            if (currentBody.includes(marker)) {
+              // Replace existing coverage section
+              const regex = new RegExp(`${marker}[\\s\\S]*?${endMarker}`);
+              newBody = currentBody.replace(regex, section);
+            } else {
+              // Append coverage section
+              newBody = currentBody.trimEnd() + '\n\n' + section;
+            }
+
+            await github.rest.pulls.update({
+              owner,
+              repo,
+              pull_number: prNumber,
+              body: newBody,
+            });
+        env:
+          COVERAGE_REPORT: ${{ steps.coverage.outputs.COVERAGE_REPORT }}
+
+      - name: Check coverage threshold
+        run: |
+          TOTAL=${{ steps.coverage.outputs.total }}
+          THRESHOLD=${{ env.COVERAGE_THRESHOLD }}
+          if (( $(echo "$TOTAL < $THRESHOLD" | bc -l) )); then
+            echo "::error::Coverage ${TOTAL}% is below threshold ${THRESHOLD}%"
+            exit 1
+          fi
+          echo "Coverage ${TOTAL}% meets threshold ${THRESHOLD}%"
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: coverage.out
+          retention-days: 7
+
+  ci:
+    if: always()
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - name: Assert all jobs passed
+        run: |
+          echo "lint: ${{ needs.lint.result }}"
+          echo "test: ${{ needs.test.result }}"
+          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.test.result }}" != "success" ]; then
+            echo "One or more CI jobs failed."
+            exit 1
+          fi
+          echo "All CI jobs passed."
