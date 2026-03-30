@@ -456,6 +456,11 @@ func TestRunInit_RemoteWithDifferentTrunk(t *testing.T) {
 	_ = config.PushAllRefs(srcRepo, "origin")
 	_ = config.PushConfig(srcRepo, "origin")
 
+	// Update bare repo HEAD to point to main (git init --bare defaults to master)
+	if err := exec.Command("git", "-C", bareDir, "symbolic-ref", "HEAD", "refs/heads/main").Run(); err != nil {
+		t.Fatalf("set HEAD: %v", err)
+	}
+
 	// Clone into fresh dir (no gs files)
 	cloneDir := t.TempDir()
 	if err := exec.Command("git", "clone", bareDir, cloneDir).Run(); err != nil {

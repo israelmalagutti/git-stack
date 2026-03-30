@@ -50,6 +50,11 @@ func TestRunInit_WithRemoteAndExistingRefs(t *testing.T) {
 		}
 	}
 
+	// Update bare repo HEAD to point to main (git init --bare defaults to master)
+	if err := exec.Command("git", "-C", bareDir, "symbolic-ref", "HEAD", "refs/heads/main").Run(); err != nil {
+		t.Fatalf("set HEAD: %v", err)
+	}
+
 	// Now clone into a fresh dir (no gs files)
 	cloneDir := filepath.Join(t.TempDir(), "clone")
 	if err := exec.Command("git", "clone", bareDir, cloneDir).Run(); err != nil {
