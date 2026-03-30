@@ -22,6 +22,18 @@ type Commit struct {
 	Message string
 }
 
+// formatPRLink returns a styled, clickable PR annotation for a node, or "".
+func formatPRLink(node *Node) string {
+	if node.PRNumber == 0 {
+		return ""
+	}
+	label := fmt.Sprintf("#%d", node.PRNumber)
+	if node.PRURL != "" {
+		label = colors.Hyperlink(node.PRURL, label)
+	}
+	return " " + colors.Muted(label)
+}
+
 // columnLayout tracks which column each node is assigned to and caches
 // sorted children to avoid repeated sorting and git subprocess calls.
 type columnLayout struct {
@@ -218,6 +230,7 @@ func (s *Stack) RenderTree(repo *git.Repo, opts TreeOptions) string {
 		if node.IsCurrent {
 			result.WriteString(colors.Muted(" (current)"))
 		}
+		result.WriteString(formatPRLink(node))
 
 		// Fetch commits once for both time-ago and commit lines
 		var commits []Commit
@@ -503,6 +516,7 @@ func (s *Stack) RenderShort(repo *git.Repo) string {
 		if node.IsCurrent {
 			result.WriteString(colors.Muted(" (current)"))
 		}
+		result.WriteString(formatPRLink(node))
 		result.WriteString("\n")
 
 		// Connector lines after the node

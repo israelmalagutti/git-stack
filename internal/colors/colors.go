@@ -266,3 +266,14 @@ func ASCIITreeChars() TreeChars {
 func CommitSHA(text string) string {
 	return apply(Yellow, text)
 }
+
+// Hyperlink wraps text in an OSC 8 hyperlink escape sequence, making it
+// clickable in supported terminals (iTerm2, Windows Terminal, GNOME Terminal,
+// Konsole, etc.). Terminals that don't support OSC 8 silently ignore the
+// escape and display the text as-is.
+func Hyperlink(url, text string) string {
+	if !enabled || url == "" {
+		return text
+	}
+	return fmt.Sprintf("\033]8;;%s\033\\%s\033]8;;\033\\", url, text)
+}

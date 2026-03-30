@@ -16,6 +16,8 @@ type Node struct {
 	IsTrunk   bool
 	IsCurrent bool
 	CommitSHA string
+	PRNumber  int    // PR number from metadata (0 = no PR)
+	PRURL     string // fully-qualified PR URL for terminal hyperlinks
 }
 
 // Stack represents the entire stack structure
@@ -73,6 +75,9 @@ func BuildStack(repo *git.Repo, cfg *config.Config, metadata *config.Metadata) (
 			IsCurrent: branchName == stack.Current,
 			CommitSHA: commitSHA,
 			Children:  []*Node{},
+		}
+		if pr := metadata.GetPR(branchName); pr != nil {
+			node.PRNumber = pr.Number
 		}
 		stack.Nodes[branchName] = node
 	}
@@ -205,6 +210,19 @@ func (n *Node) SortedChildren() []*Node {
 		return sorted[i].Name < sorted[j].Name
 	})
 	return sorted
+}
+
+// SetPRURLs sets the PRURL on every node that has a PRNumber, using the
+// provided base URL (e.g. "https://github.com/owner/repo").
+func (s *Stack) SetPRURLs(baseURL string) {
+	if baseURL == "" {
+		return
+	}
+	for _, node := range s.Nodes {
+		if node.PRNumber > 0 {
+			node.PRURL = fmt.Sprintf("%s/pull/%d", baseURL, node.PRNumber)
+		}
+	}
 }
 
 // GetTopologicalOrder returns all non-trunk branches in topological order (parents before children)
