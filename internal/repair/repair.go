@@ -15,6 +15,7 @@ const (
 	MissingParent   IssueKind = "missing_parent"     // tracked branch's parent doesn't exist
 	CircularParent  IssueKind = "circular_parent"    // parent chain forms a cycle
 	RefJSONMismatch IssueKind = "ref_json_mismatch"  // ref and JSON metadata disagree on parent
+	RemoteDeleted   IssueKind = "remote_deleted"     // branch exists locally but remote was deleted
 )
 
 // Issue represents a single metadata inconsistency.
@@ -110,7 +111,27 @@ func DetectIssues(repo *git.Repo, metadata *config.Metadata, cfg *config.Config)
 		}
 	}
 
-	// 5. Ref/JSON parent mismatch
+	// 5. Remote deleted: branch exists locally but remote counterpart is gone
+	if repo.HasRemote("origin") {
+		for branch := range metadata.Branches {
+			if branch == cfg.Trunk {
+				continue
+			}
+			if !repo.BranchExists(branch) {
+				continue // already caught by orphaned checks
+			}
+			if !repo.HasRemoteBranch(branch, "origin") {
+				issues = append(issues, Issue{
+					Kind:        RemoteDeleted,
+					Branch:      branch,
+					Description: fmt.Sprintf("'%s' exists locally but has no remote branch (likely merged/deleted upstream)", branch),
+					Fix:         fmt.Sprintf("delete local branch '%s' and untrack", branch),
+				})
+			}
+		}
+	}
+
+	// 6. Ref/JSON parent mismatch
 	for branch, refMeta := range refBranches {
 		jsonMeta, exists := metadata.Branches[branch]
 		if !exists {
@@ -165,6 +186,24 @@ func ApplyFix(repo *git.Repo, metadata *config.Metadata, cfg *config.Config, iss
 
 	case CircularParent:
 		return metadata.UpdateParent(issue.Branch, cfg.Trunk)
+
+	case RemoteDeleted:
+		// Reparent children to this branch's parent before removing
+		parent, _ := metadata.GetParent(issue.Branch)
+		if parent == "" {
+			parent = cfg.Trunk
+		}
+		for child := range metadata.Branches {
+			childParent, ok := metadata.GetParent(child)
+			if ok && childParent == issue.Branch {
+				_ = metadata.UpdateParent(child, parent)
+			}
+		}
+		// Delete local git branch and untrack
+		_ = repo.DeleteBranch(issue.Branch, true)
+		metadata.UntrackBranch(issue.Branch)
+		_ = config.DeleteRefBranchMeta(repo, issue.Branch)
+		return nil
 
 	case RefJSONMismatch:
 		refMeta, err := config.ReadRefBranchMeta(repo, issue.Branch)

@@ -91,14 +91,21 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// 4. Find and prompt to delete merged branches
+	// 4. Clean up branches whose remote was deleted (merged/deleted upstream)
+	if syncDelete {
+		if err := cleanRemoteDeletedBranches(repo, metadata, cfg, syncForce); err != nil {
+			return err
+		}
+	}
+
+	// 5. Find and prompt to delete merged branches
 	if syncDelete {
 		if err := deleteMergedBranches(repo, metadata, cfg.Trunk, syncForce); err != nil {
 			return err
 		}
 	}
 
-	// 5. Auto-restack all branches without conflicts
+	// 6. Auto-restack all branches without conflicts
 	if syncRestack {
 		// Rebuild stack after potential deletions
 		s, err := stack.BuildStack(repo, cfg, metadata)
@@ -292,6 +299,84 @@ func cleanStaleBranches(repo *git.Repo, metadata *config.Metadata, cfg *config.C
 	}
 
 	fmt.Printf("✓ Removed %d stale branch(es) from metadata\n", len(staleBranches))
+	return nil
+}
+
+// cleanRemoteDeletedBranches detects tracked branches whose remote counterpart
+// was deleted (e.g., merged and deleted on GitHub) and offers to clean them up.
+// After git fetch --prune, origin/<branch> is gone but the local branch remains.
+func cleanRemoteDeletedBranches(repo *git.Repo, metadata *config.Metadata, cfg *config.Config, force bool) error {
+	if !repoHasRemote(repo) {
+		return nil
+	}
+
+	var remoteGone []string
+	for branch := range metadata.Branches {
+		if branch == cfg.Trunk {
+			continue
+		}
+		if !repo.BranchExists(branch) {
+			continue // already handled by cleanStaleBranches
+		}
+		if !repo.HasRemoteBranch(branch, "origin") {
+			remoteGone = append(remoteGone, branch)
+		}
+	}
+
+	if len(remoteGone) == 0 {
+		return nil
+	}
+
+	fmt.Printf("\nFound %d branch(es) with no remote (deleted upstream):\n", len(remoteGone))
+	for _, branch := range remoteGone {
+		fmt.Printf("  - %s\n", branch)
+	}
+
+	if force {
+		fmt.Println()
+		for _, branch := range remoteGone {
+			if err := deleteBranchAndCleanup(repo, metadata, branch); err != nil {
+				fmt.Printf("  ✗ Failed to delete %s: %v\n", branch, err)
+			} else {
+				fmt.Printf("  ✓ Deleted %s\n", branch)
+			}
+		}
+	} else {
+		fmt.Println()
+		deleteAll := false
+		for _, branch := range remoteGone {
+			if deleteAll {
+				if err := deleteBranchAndCleanup(repo, metadata, branch); err != nil {
+					fmt.Printf("  ✗ Failed to delete %s: %v\n", branch, err)
+				} else {
+					fmt.Printf("  ✓ Deleted %s\n", branch)
+				}
+				continue
+			}
+
+			fmt.Printf("Delete '%s'? [y/n/a(ll)/q(uit)]: ", branch)
+			action := confirmWithOptions()
+
+			switch action {
+			case "yes":
+				if err := deleteBranchAndCleanup(repo, metadata, branch); err != nil {
+					fmt.Printf("  ✗ Failed to delete %s: %v\n", branch, err)
+				} else {
+					fmt.Printf("  ✓ Deleted %s\n", branch)
+				}
+			case "all":
+				deleteAll = true
+				if err := deleteBranchAndCleanup(repo, metadata, branch); err != nil {
+					fmt.Printf("  ✗ Failed to delete %s: %v\n", branch, err)
+				} else {
+					fmt.Printf("  ✓ Deleted %s\n", branch)
+				}
+			case "quit":
+				return nil
+			}
+		}
+	}
+
 	return nil
 }
 

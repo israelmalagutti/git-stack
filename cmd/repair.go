@@ -28,6 +28,7 @@ Checks for:
   - Missing parents (parent branch no longer exists)
   - Circular parent chains
   - Ref/JSON metadata mismatches
+  - Remote-deleted branches (local branch exists but remote was deleted)
 
 Example:
   gs repair              # Interactive: report and prompt for each fix

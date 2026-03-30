@@ -325,6 +325,158 @@ func TestDetectOrphanedMetadataWithoutRef(t *testing.T) {
 	}
 }
 
+func setupRepairTestRepoWithRemote(t *testing.T) (*git.Repo, string, func()) {
+	t.Helper()
+
+	base := t.TempDir()
+	remoteDir := filepath.Join(base, "remote.git")
+	localDir := filepath.Join(base, "local")
+
+	if err := exec.Command("git", "init", "--bare", remoteDir).Run(); err != nil {
+		t.Fatalf("failed to init bare remote: %v", err)
+	}
+	if err := exec.Command("git", "init", localDir).Run(); err != nil {
+		t.Fatalf("failed to init local: %v", err)
+	}
+
+	for _, args := range [][]string{
+		{"git", "-C", localDir, "config", "user.email", "test@test.com"},
+		{"git", "-C", localDir, "config", "user.name", "Test User"},
+		{"git", "-C", localDir, "config", "commit.gpgsign", "false"},
+	} {
+		if err := exec.Command(args[0], args[1:]...).Run(); err != nil {
+			t.Fatalf("failed to run %v: %v", args, err)
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(localDir, "README.md"), []byte("# Test"), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+	for _, args := range [][]string{
+		{"git", "-C", localDir, "add", "."},
+		{"git", "-C", localDir, "commit", "-m", "Initial commit"},
+		{"git", "-C", localDir, "branch", "-M", "main"},
+		{"git", "-C", localDir, "remote", "add", "origin", remoteDir},
+		{"git", "-C", localDir, "push", "-u", "origin", "main"},
+	} {
+		if err := exec.Command(args[0], args[1:]...).Run(); err != nil {
+			t.Fatalf("failed to run %v: %v", args, err)
+		}
+	}
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err := os.Chdir(localDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	// Set bare repo HEAD so HasRemoteBranch works
+	if err := exec.Command("git", "-C", remoteDir, "symbolic-ref", "HEAD", "refs/heads/main").Run(); err != nil {
+		t.Fatalf("failed to set bare HEAD: %v", err)
+	}
+
+	repo, err := git.NewRepo()
+	if err != nil {
+		t.Fatalf("NewRepo failed: %v", err)
+	}
+
+	return repo, localDir, func() {
+		_ = os.Chdir(origDir)
+	}
+}
+
+func TestDetectRemoteDeleted(t *testing.T) {
+	repo, localDir, cleanup := setupRepairTestRepoWithRemote(t)
+	defer cleanup()
+
+	// Create a branch, push it, then delete the remote branch
+	if err := exec.Command("git", "-C", localDir, "checkout", "-b", "feat-remote-gone").Run(); err != nil {
+		t.Fatalf("failed to create branch: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(localDir, "feat.txt"), []byte("feature"), 0644); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+	for _, args := range [][]string{
+		{"git", "-C", localDir, "add", "."},
+		{"git", "-C", localDir, "commit", "-m", "feat commit"},
+		{"git", "-C", localDir, "push", "-u", "origin", "feat-remote-gone"},
+	} {
+		if err := exec.Command(args[0], args[1:]...).Run(); err != nil {
+			t.Fatalf("failed to run %v: %v", args, err)
+		}
+	}
+
+	// Track it in metadata
+	metadata := &config.Metadata{Branches: make(map[string]*config.BranchMetadata)}
+	metadata.TrackBranch("feat-remote-gone", "main", "")
+
+	// Delete remote branch and prune
+	if err := exec.Command("git", "-C", localDir, "push", "origin", "--delete", "feat-remote-gone").Run(); err != nil {
+		t.Fatalf("failed to delete remote branch: %v", err)
+	}
+	if err := exec.Command("git", "-C", localDir, "fetch", "--prune").Run(); err != nil {
+		t.Fatalf("failed to fetch --prune: %v", err)
+	}
+
+	// Go back to main so the branch can be deleted by ApplyFix
+	if err := exec.Command("git", "-C", localDir, "checkout", "main").Run(); err != nil {
+		t.Fatalf("failed to checkout main: %v", err)
+	}
+
+	issues, err := DetectIssues(repo, metadata, newTestConfig())
+	if err != nil {
+		t.Fatalf("DetectIssues failed: %v", err)
+	}
+
+	found := false
+	for _, iss := range issues {
+		if iss.Kind == RemoteDeleted && iss.Branch == "feat-remote-gone" {
+			found = true
+
+			// Fix it
+			if err := ApplyFix(repo, metadata, newTestConfig(), iss); err != nil {
+				t.Fatalf("ApplyFix failed: %v", err)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected RemoteDeleted for feat-remote-gone, got: %+v", issues)
+	}
+
+	if metadata.IsTracked("feat-remote-gone") {
+		t.Error("expected feat-remote-gone to be untracked after fix")
+	}
+	if repo.BranchExists("feat-remote-gone") {
+		t.Error("expected feat-remote-gone git branch to be deleted after fix")
+	}
+}
+
+func TestDetectRemoteDeletedSkippedWithoutRemote(t *testing.T) {
+	repo, _, cleanup := setupRepairTestRepo(t)
+	defer cleanup()
+
+	// Track a branch with no remote configured
+	if err := repo.CreateBranch("feat-noremote"); err != nil {
+		t.Fatalf("CreateBranch failed: %v", err)
+	}
+	metadata := &config.Metadata{Branches: make(map[string]*config.BranchMetadata)}
+	metadata.TrackBranch("feat-noremote", "main", "")
+
+	issues, err := DetectIssues(repo, metadata, newTestConfig())
+	if err != nil {
+		t.Fatalf("DetectIssues failed: %v", err)
+	}
+
+	for _, iss := range issues {
+		if iss.Kind == RemoteDeleted {
+			t.Errorf("should not detect RemoteDeleted when no remote is configured, got: %+v", iss)
+		}
+	}
+}
+
 func TestApplyFixUnknownKind(t *testing.T) {
 	repo, _, cleanup := setupRepairTestRepo(t)
 	defer cleanup()
