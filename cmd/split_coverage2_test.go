@@ -13,14 +13,19 @@ import (
 func TestSplitByFileModeSuccessfulSplit(t *testing.T) {
 	// Tests the full happy-path for splitByFileMode including
 	// track, update parent, rebase, and push metadata refs.
-	// Both files must be in the same commit so there are no untracked leftovers.
+	// Both files must already exist on main so that after cherry-pick + reset,
+	// they appear as modified (not untracked) and checkout -- . can clean them up.
 	repo := setupCmdTestRepo(t)
 	defer repo.cleanup()
+
+	// Create both files on main first so they are tracked everywhere
+	repo.commitFile(t, "keep.txt", "original keep", "add keep.txt on main")
+	repo.commitFile(t, "move.txt", "original move", "add move.txt on main")
 
 	repo.createBranch(t, "feat-split-full", "main")
 	_ = repo.repo.CheckoutBranch("feat-split-full")
 
-	// Create both files in a single commit
+	// Modify both files in a single commit on the branch
 	if err := os.WriteFile(filepath.Join(repo.dir, "keep.txt"), []byte("keep data"), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}

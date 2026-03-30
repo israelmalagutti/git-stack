@@ -23,8 +23,7 @@ npx @gitstack/cli
 ### Homebrew (macOS / Linux)
 
 ```bash
-brew tap israelmalagutti/tap
-brew install gs
+brew install israelmalagutti/tap/git-stack
 ```
 
 ### Go
