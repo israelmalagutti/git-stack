@@ -11,10 +11,27 @@ import (
 // defaultRemote is the remote used for ref sync operations.
 const defaultRemote = "origin"
 
+// ensureRefspec is a one-time check per process. Once the refspec is confirmed
+// configured, we skip the check for all subsequent loadMetadata calls.
+var refspecConfigured bool
+
 // loadMetadata loads stack metadata using refs as the primary source,
 // falling back to the JSON file. If metadata is found only in JSON,
 // it is auto-migrated to refs for future access.
+//
+// On first call, ensures the fetch refspec for refs/gs/* is configured
+// so that future git fetches include metadata from the remote. This
+// handles upgrades from pre-ref versions without requiring gs init --reset.
 func loadMetadata(repo *git.Repo) (*config.Metadata, error) {
+	// Ensure the refspec is configured (idempotent, once per process).
+	// This handles the upgrade case: Bob had an old gs version without refs,
+	// updates, and never runs gs init again. Without this, git fetch would
+	// never pull refs/gs/* and team sync would silently be one-way only.
+	if !refspecConfigured {
+		configureGSRefspec(repo)
+		refspecConfigured = true
+	}
+
 	jsonPath := repo.GetMetadataPath()
 
 	meta, source, err := config.LoadMetadataWithRefs(repo, jsonPath)
