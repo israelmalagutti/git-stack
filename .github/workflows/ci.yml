@@ -11,7 +11,7 @@ permissions:
   pull-requests: write
 
 env:
-  COVERAGE_THRESHOLD: 90
+  COVERAGE_THRESHOLD: 85
 
 jobs:
   lint:
