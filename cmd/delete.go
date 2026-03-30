@@ -93,20 +93,11 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Validate branch
 	if branchToDelete == "" {
 		return fmt.Errorf("no branch specified")
 	}
 
-	if err := validateNotTrunkAndTracked(metadata, branchToDelete, cfg.Trunk, "delete"); err != nil {
-		return err
-	}
-
-	if !repo.BranchExists(branchToDelete) {
-		return fmt.Errorf("branch '%s' does not exist", branchToDelete)
-	}
-
-	// Build stack to get parent and children
+	// Build stack for confirmation prompt context (ops.DeleteBranch owns validation)
 	s, err := stack.BuildStack(repo, cfg, metadata)
 	if err != nil {
 		return fmt.Errorf("failed to build stack: %w", err)

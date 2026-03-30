@@ -39,14 +39,9 @@ func NewRepoAt(dir string) (*Repo, error) {
 		return strings.TrimSpace(string(out)), nil
 	}
 
-	// Check if we're in a git repository
-	if _, err := gitCmd("rev-parse", "--git-dir"); err != nil {
-		return nil, fmt.Errorf("not a git repository (or any of the parent directories)")
-	}
-
 	gitDir, err := gitCmd("rev-parse", "--git-dir")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get git directory: %w", err)
+		return nil, fmt.Errorf("not a git repository (or any of the parent directories)")
 	}
 
 	commonDir, err := gitCmd("rev-parse", "--git-common-dir")
@@ -57,6 +52,17 @@ func NewRepoAt(dir string) (*Repo, error) {
 	workDir, err := gitCmd("rev-parse", "--show-toplevel")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	// Resolve relative paths when dir is provided (rev-parse returns
+	// relative paths like ".git" when run via cmd.Dir)
+	if dir != "" {
+		if !filepath.IsAbs(gitDir) {
+			gitDir = filepath.Join(dir, gitDir)
+		}
+		if !filepath.IsAbs(commonDir) {
+			commonDir = filepath.Join(dir, commonDir)
+		}
 	}
 
 	return &Repo{

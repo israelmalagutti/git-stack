@@ -62,7 +62,7 @@ func TestMain(m *testing.M) {
 
 // copyDir recursively copies src to dst.
 func copyDir(src, dst string) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+	return filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -73,11 +73,15 @@ func copyDir(src, dst string) error {
 		}
 		target := filepath.Join(dst, rel)
 
-		if info.IsDir() {
-			return os.MkdirAll(target, info.Mode())
+		if d.IsDir() {
+			return os.MkdirAll(target, 0755)
 		}
 
 		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		info, err := d.Info()
 		if err != nil {
 			return err
 		}

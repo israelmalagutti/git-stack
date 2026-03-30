@@ -9,7 +9,7 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/israelmalagutti/git-stack/internal/colors"
 	"github.com/israelmalagutti/git-stack/internal/git"
-	"github.com/israelmalagutti/git-stack/internal/stack" // used by checkoutBranch
+	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 

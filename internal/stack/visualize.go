@@ -606,27 +606,6 @@ func getCommitTimestamp(repo *git.Repo, branch string) int64 {
 	return timestamp
 }
 
-// sortChildrenByTime sorts children by their last commit time (newer first).
-// Kept for backward compatibility with tests.
-func sortChildrenByTime(repo *git.Repo, children []*Node) []*Node {
-	if len(children) == 0 {
-		return nil
-	}
-	sorted := make([]*Node, len(children))
-	copy(sorted, children)
-
-	timestamps := make(map[string]int64)
-	for _, child := range sorted {
-		timestamps[child.Name] = getCommitTimestamp(repo, child.Name)
-	}
-
-	sort.Slice(sorted, func(i, j int) bool {
-		return timestamps[sorted[i].Name] > timestamps[sorted[j].Name]
-	})
-
-	return sorted
-}
-
 // getTrunkCommits returns the last n commits on trunk
 func getTrunkCommits(repo *git.Repo, branch string, n int) []Commit {
 	output, err := repo.RunGitCommand("log", "--oneline", fmt.Sprintf("-%d", n), branch)
