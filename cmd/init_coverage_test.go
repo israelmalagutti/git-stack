@@ -51,7 +51,7 @@ func TestRunInit_WithRemoteAndExistingRefs(t *testing.T) {
 	}
 
 	// Now clone into a fresh dir (no gs files)
-	cloneDir := t.TempDir()
+	cloneDir := filepath.Join(t.TempDir(), "clone")
 	if err := exec.Command("git", "clone", bareDir, cloneDir).Run(); err != nil {
 		t.Fatalf("clone: %v", err)
 	}

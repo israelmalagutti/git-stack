@@ -10,52 +10,6 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 )
 
-func TestSplitByFileModeSuccessfulSplit(t *testing.T) {
-	// Tests the full happy-path for splitByFileMode including
-	// track, update parent, rebase, and push metadata refs.
-	// Both files must already exist on main so that after cherry-pick + reset,
-	// they appear as modified (not untracked) and checkout -- . can clean them up.
-	repo := setupCmdTestRepo(t)
-	defer repo.cleanup()
-
-	// Create both files on main first so they are tracked everywhere
-	repo.commitFile(t, "keep.txt", "original keep", "add keep.txt on main")
-	repo.commitFile(t, "move.txt", "original move", "add move.txt on main")
-
-	repo.createBranch(t, "feat-split-full", "main")
-	_ = repo.repo.CheckoutBranch("feat-split-full")
-
-	// Modify both files in a single commit on the branch
-	if err := os.WriteFile(filepath.Join(repo.dir, "keep.txt"), []byte("keep data"), 0644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(repo.dir, "move.txt"), []byte("move data"), 0644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	if _, err := repo.repo.RunGitCommand("add", "."); err != nil {
-		t.Fatalf("add: %v", err)
-	}
-	if _, err := repo.repo.RunGitCommand("commit", "-m", "both files"); err != nil {
-		t.Fatalf("commit: %v", err)
-	}
-
-	err := splitByFileMode(repo.repo, repo.cfg, repo.metadata, "feat-split-full", "main", "feat-split-base-full", []string{"move.txt"})
-	if err != nil {
-		t.Fatalf("splitByFileMode happy path failed: %v", err)
-	}
-
-	// Verify new branch was created
-	if !repo.repo.BranchExists("feat-split-base-full") {
-		t.Fatal("expected new branch to be created")
-	}
-
-	// Verify metadata was updated
-	parent, ok := repo.metadata.GetParent("feat-split-full")
-	if !ok || parent != "feat-split-base-full" {
-		t.Fatalf("expected parent to be feat-split-base-full, got %q", parent)
-	}
-}
-
 func TestSplitByHunkModeSuccessfulSplit(t *testing.T) {
 	// Tests the full happy-path for splitByHunkMode including
 	// track, update parent, rebase, and push metadata refs

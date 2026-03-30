@@ -64,8 +64,8 @@ func TestMigrateFromGW_WithLegacyFiles(t *testing.T) {
 	commonDir := tr.repo.GetCommonDir()
 
 	// Remove the gs files so migration can proceed
-	os.Remove(filepath.Join(commonDir, ".gs_config"))
-	os.Remove(filepath.Join(commonDir, ".gs_stack_metadata"))
+	_ = os.Remove(filepath.Join(commonDir, ".gs_config"))
+	_ = os.Remove(filepath.Join(commonDir, ".gs_stack_metadata"))
 
 	// Create legacy gw files
 	gw := map[string]string{

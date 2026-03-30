@@ -259,8 +259,8 @@ func TestRunInit_RemoteWithConfigRef(t *testing.T) {
 	pushConfigRef(tr.repo)
 
 	// Remove local gs config to force init
-	os.Remove(filepath.Join(tr.dir, ".git", ".gs_config"))
-	os.Remove(filepath.Join(tr.dir, ".git", ".gs_stack_metadata"))
+	_ = os.Remove(filepath.Join(tr.dir, ".git", ".gs_config"))
+	_ = os.Remove(filepath.Join(tr.dir, ".git", ".gs_stack_metadata"))
 
 	// Configure refspec for gs refs
 	configureGSRefspec(tr.repo)

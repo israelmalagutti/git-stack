@@ -354,7 +354,7 @@ func TestRunInit_Cancel(t *testing.T) {
 	defer cleanup()
 
 	// Remove gs config so init will proceed to prompt
-	os.Remove(filepath.Join(dir, ".git", ".gs_config"))
+	_ = os.Remove(filepath.Join(dir, ".git", ".gs_config"))
 
 	withAskOneError(t, terminal.InterruptErr, func() {
 		err := runInit(nil, nil)

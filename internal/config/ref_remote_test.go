@@ -407,7 +407,7 @@ func TestLoadMetadataWithRefsFallback(t *testing.T) {
 		t.Fatalf("WriteRefBranchMeta failed: %v", err)
 	}
 
-	meta, source, err = LoadMetadataWithRefs(localRepo, metaPath)
+	_, source, err = LoadMetadataWithRefs(localRepo, metaPath)
 	if err != nil {
 		t.Fatalf("LoadMetadataWithRefs failed: %v", err)
 	}

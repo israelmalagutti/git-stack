@@ -705,7 +705,7 @@ func TestRunModify_AmendWithChildren(t *testing.T) {
 			t.Fatalf("runModify amend with children failed unexpectedly: %v", err)
 		}
 		// Abort the in-progress rebase to keep the repo clean
-		tr.repo.RunGitCommand("rebase", "--abort")
+		_, _ = tr.repo.RunGitCommand("rebase", "--abort")
 	}
 }
 
