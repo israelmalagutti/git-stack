@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/israelmalagutti/git-stack/internal/ops"
 	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
@@ -40,11 +41,6 @@ func runDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	repo, cfg, metadata := rs.Repo, rs.Config, rs.Metadata
-
-	currentBranch, err := repo.GetCurrentBranch()
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
 
 	// Determine which branch to delete
 	branchToDelete := ""
@@ -149,62 +145,31 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// If deleting current branch, checkout parent first
-	needToCheckout := (branchToDelete == currentBranch)
-	if needToCheckout {
-		fmt.Printf("Checking out '%s'...\n", parentBranch)
-		if err := repo.CheckoutBranch(parentBranch); err != nil {
-			return fmt.Errorf("failed to checkout parent: %w", err)
+	// Perform the deletion (reparent children, delete branch, clean up metadata)
+	result, err := ops.DeleteBranch(repo, metadata, s, branchToDelete)
+	if err != nil {
+		return err
+	}
+
+	if result.CheckedOut != "" {
+		fmt.Printf("Checking out '%s'...\n", result.CheckedOut)
+	}
+	if len(result.ReparentedChildren) > 0 {
+		fmt.Printf("\nUpdating %d child branch(es)...\n", len(result.ReparentedChildren))
+		for _, child := range result.ReparentedChildren {
+			fmt.Printf("  ✓ Updated '%s' parent to '%s'\n", child, result.NewParent)
 		}
 	}
-
-	// Update children to point to parent
-	if len(deleteNode.Children) > 0 {
-		fmt.Printf("\nUpdating %d child branch(es)...\n", len(deleteNode.Children))
-		for _, child := range deleteNode.Children {
-			if err := metadata.UpdateParent(child.Name, parentBranch); err != nil {
-				return fmt.Errorf("failed to update child '%s': %w", child.Name, err)
-			}
-			fmt.Printf("  ✓ Updated '%s' parent to '%s'\n", child.Name, parentBranch)
-		}
-
-		if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
-			return fmt.Errorf("failed to save metadata: %w", err)
-		}
-	}
-
-	// Delete the branch
-	fmt.Printf("\nDeleting branch '%s'...\n", branchToDelete)
-	if _, err := repo.RunGitCommand("branch", "-D", branchToDelete); err != nil {
-		return fmt.Errorf("failed to delete branch: %w", err)
-	}
-
-	// Remove from metadata
-	metadata.UntrackBranch(branchToDelete)
-	if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
-		return fmt.Errorf("failed to save metadata: %w", err)
-	}
-
-	// Delete remote metadata ref and push updated children refs
-	deleteRemoteMetadataRef(repo, branchToDelete)
-	if len(deleteNode.Children) > 0 {
-		childNames := make([]string, len(deleteNode.Children))
-		for i, c := range deleteNode.Children {
-			childNames[i] = c.Name
-		}
-		pushMetadataRefs(repo, childNames...)
-	}
-
 	fmt.Printf("✓ Deleted branch '%s'\n", branchToDelete)
 
 	// Rebuild stack and restack children
-	if len(deleteNode.Children) > 0 {
+	if len(result.ReparentedChildren) > 0 {
 		s, err := stack.BuildStack(repo, cfg, metadata)
 		if err != nil {
 			return fmt.Errorf("failed to rebuild stack: %w", err)
 		}
 
-		parentNode := s.GetNode(parentBranch)
+		parentNode := s.GetNode(result.NewParent)
 		if parentNode != nil && len(parentNode.Children) > 0 {
 			fmt.Println("\nRestacking children...")
 			if err := restackChildren(repo, s, parentNode); err != nil {
