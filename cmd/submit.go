@@ -46,23 +46,12 @@ func init() {
 }
 
 func runSubmit(cmd *cobra.Command, args []string) error {
-	repo, err := git.NewRepo()
-	if err != nil {
-		return fmt.Errorf("failed to initialize repository: %w", err)
-	}
-
-	cfg, err := config.Load(repo.GetConfigPath())
+	rs, err := loadRepoState()
 	if err != nil {
 		return err
 	}
 
-	metadata, err := loadMetadata(repo)
-	if err != nil {
-		return fmt.Errorf("failed to load metadata: %w", err)
-	}
-
-	// Detect provider
-	prov, err := detectProvider(repo)
+	prov, err := detectProvider(rs.Repo)
 	if err != nil {
 		return err
 	}
@@ -74,17 +63,11 @@ func runSubmit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("provider CLI not authenticated.\nRun: gh auth login")
 	}
 
-	// Build stack
-	s, err := stack.BuildStack(repo, cfg, metadata)
-	if err != nil {
-		return fmt.Errorf("failed to build stack: %w", err)
-	}
-
 	if submitStack {
-		return submitStackBranches(repo, metadata, prov, s)
+		return submitStackBranches(rs.Repo, rs.Metadata, prov, rs.Stack)
 	}
 
-	return submitCurrentBranch(repo, metadata, prov, s)
+	return submitCurrentBranch(rs.Repo, rs.Metadata, prov, rs.Stack)
 }
 
 func submitCurrentBranch(repo *git.Repo, metadata *config.Metadata, prov provider.Provider, s *stack.Stack) error {

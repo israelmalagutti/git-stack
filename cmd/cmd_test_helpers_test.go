@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -27,33 +26,10 @@ func setupCmdTestRepo(t *testing.T) *cmdTestRepo {
 	}
 
 	dir := t.TempDir()
-	if err := exec.Command("git", "init", dir).Run(); err != nil {
-		t.Fatalf("failed to init git repo: %v", err)
-	}
 
-	cmds := [][]string{
-		{"git", "-C", dir, "config", "user.email", "test@test.com"},
-		{"git", "-C", dir, "config", "user.name", "Test User"},
-		{"git", "-C", dir, "config", "commit.gpgsign", "false"},
-	}
-	for _, args := range cmds {
-		if err := exec.Command(args[0], args[1:]...).Run(); err != nil {
-			t.Fatalf("failed to run %v: %v", args, err)
-		}
-	}
-
-	readme := filepath.Join(dir, "README.md")
-	if err := os.WriteFile(readme, []byte("# Test\n"), 0644); err != nil {
-		t.Fatalf("failed to write README: %v", err)
-	}
-	if err := exec.Command("git", "-C", dir, "add", ".").Run(); err != nil {
-		t.Fatalf("failed to git add: %v", err)
-	}
-	if err := exec.Command("git", "-C", dir, "commit", "-m", "Initial commit").Run(); err != nil {
-		t.Fatalf("failed to git commit: %v", err)
-	}
-	if err := exec.Command("git", "-C", dir, "branch", "-M", "main").Run(); err != nil {
-		t.Fatalf("failed to rename branch: %v", err)
+	// Copy pre-built template repo instead of running 7 git subprocesses
+	if err := copyDir(templateRepoDir, dir); err != nil {
+		t.Fatalf("failed to copy template repo: %v", err)
 	}
 
 	if err := os.Chdir(dir); err != nil {
