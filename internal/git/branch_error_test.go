@@ -106,13 +106,10 @@ func TestBranchErrorPaths(t *testing.T) {
 		t.Fatalf("expected is-behind error")
 	}
 
-	// Run in non-git directory to cover command failures
-	nonRepo := t.TempDir()
-	if err := os.Chdir(nonRepo); err != nil {
-		t.Fatalf("failed to chdir non-repo: %v", err)
-	}
-	if _, err := repo.ListBranches(); err == nil {
-		t.Fatalf("expected list branches error outside repo")
+	// Use a repo with a non-existent workDir to trigger git command failures
+	badRepo := &Repo{workDir: "/nonexistent-dir-for-test"}
+	if _, err := badRepo.ListBranches(); err == nil {
+		t.Fatalf("expected list branches error with invalid workDir")
 	}
 }
 
@@ -166,30 +163,9 @@ func TestEmptyRepoBranches(t *testing.T) {
 }
 
 func TestFetchOutsideRepo(t *testing.T) {
-	dir, cleanup := setupSimpleRepo(t)
-	defer cleanup()
-
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	defer func() { _ = os.Chdir(origDir) }()
-	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
-
-	repo, err := NewRepo()
-	if err != nil {
-		t.Fatalf("failed to open repo: %v", err)
-	}
-
-	nonRepo := t.TempDir()
-	if err := os.Chdir(nonRepo); err != nil {
-		t.Fatalf("failed to chdir non-repo: %v", err)
-	}
-
-	if err := repo.Fetch(); err == nil {
-		t.Fatalf("expected fetch error outside repo")
+	badRepo := &Repo{workDir: "/nonexistent-dir-for-test"}
+	if err := badRepo.Fetch(); err == nil {
+		t.Fatalf("expected fetch error with invalid workDir")
 	}
 }
 

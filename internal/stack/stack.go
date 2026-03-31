@@ -125,11 +125,17 @@ func (s *Stack) FindPath(branch string) []*Node {
 		return nil
 	}
 
+	// Build path leaf→trunk, then reverse to trunk→leaf.
+	// This avoids O(n²) slice prepend on each iteration.
 	path := []*Node{}
 	current := node
 	for current != nil {
-		path = append([]*Node{current}, path...)
+		path = append(path, current)
 		current = current.Parent
+	}
+
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
 	}
 
 	return path

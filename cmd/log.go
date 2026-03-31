@@ -3,8 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/israelmalagutti/git-stack/internal/config"
-	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
@@ -36,46 +34,25 @@ func init() {
 }
 
 func runLog(cmd *cobra.Command, args []string) error {
-	// Initialize repository
-	repo, err := git.NewRepo()
-	if err != nil {
-		return fmt.Errorf("failed to initialize repository: %w", err)
-	}
-
-	// Load config
-	cfg, err := config.Load(repo.GetConfigPath())
+	rs, err := loadRepoState()
 	if err != nil {
 		return err
 	}
 
-	// Load metadata
-	metadata, err := loadMetadata(repo)
-	if err != nil {
-		return fmt.Errorf("failed to load metadata: %w", err)
-	}
-
-	// Build stack
-	s, err := stack.BuildStack(repo, cfg, metadata)
-	if err != nil {
-		return fmt.Errorf("failed to build stack: %w", err)
-	}
-
-	// Validate stack
-	if err := s.ValidateStack(); err != nil {
+	if err := rs.Stack.ValidateStack(); err != nil {
 		return fmt.Errorf("invalid stack structure: %w", err)
 	}
 
-	// Render based on flags
 	var output string
 	if logShort {
-		output = s.RenderShort(repo)
+		output = rs.Stack.RenderShort(rs.Repo)
 	} else {
 		opts := stack.TreeOptions{
 			ShowCommitSHA: true,
 			ShowCommitMsg: logLong,
 			Detailed:      logLong,
 		}
-		output = s.RenderTree(repo, opts)
+		output = rs.Stack.RenderTree(rs.Repo, opts)
 	}
 
 	fmt.Print(output)
