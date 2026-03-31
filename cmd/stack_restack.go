@@ -58,7 +58,22 @@ func registerRestackFlags(cmd *cobra.Command) {
 }
 
 func runStackRestack(cmd *cobra.Command, args []string) error {
-	// Validate mutually exclusive flags before loading state
+	// Initialize repository
+	repo, err := git.NewRepo()
+	if err != nil {
+		return fmt.Errorf("failed to initialize repository: %w", err)
+	}
+
+	// Dirty tree check
+	dirty, err := repo.HasUncommittedChanges()
+	if err != nil {
+		return fmt.Errorf("failed to check working tree: %w", err)
+	}
+	if dirty {
+		return fmt.Errorf("you have uncommitted changes. Please commit or stash them before restacking")
+	}
+
+	// Validate mutually exclusive flags
 	exclusiveCount := 0
 	if restackOnly {
 		exclusiveCount++
@@ -73,31 +88,29 @@ func runStackRestack(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--only, --upstack, and --downstack are mutually exclusive")
 	}
 
-	rs, err := loadRepoConfig()
+	// Load config
+	cfg, err := config.Load(repo.GetConfigPath())
 	if err != nil {
 		return err
 	}
 
-	// Dirty tree check (fail fast before building the full stack)
-	dirty, err := rs.Repo.HasUncommittedChanges()
+	// Load metadata
+	metadata, err := loadMetadata(repo)
 	if err != nil {
-		return fmt.Errorf("failed to check working tree: %w", err)
-	}
-	if dirty {
-		return fmt.Errorf("you have uncommitted changes. Please commit or stash them before restacking")
+		return fmt.Errorf("failed to load metadata: %w", err)
 	}
 
-	currentBranch, err := rs.Repo.GetCurrentBranch()
+	// Get current branch
+	currentBranch, err := repo.GetCurrentBranch()
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	// Build stack after confirming clean worktree
-	if err := rs.RebuildStack(); err != nil {
-		return err
+	// Build stack
+	s, err := stack.BuildStack(repo, cfg, metadata)
+	if err != nil {
+		return fmt.Errorf("failed to build stack: %w", err)
 	}
-
-	repo, cfg, metadata, s := rs.Repo, rs.Config, rs.Metadata, rs.Stack
 
 	// Resolve start branch
 	startBranch := currentBranch

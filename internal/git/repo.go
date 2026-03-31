@@ -19,57 +19,37 @@ type Repo struct {
 	commonDir string
 }
 
-// NewRepo creates a new Repo instance from the current working directory.
+// NewRepo creates a new Repo instance and validates it's a git repository
 func NewRepo() (*Repo, error) {
-	return NewRepoAt("")
-}
-
-// NewRepoAt creates a new Repo instance rooted at the given directory.
-// If dir is empty, the current working directory is used.
-func NewRepoAt(dir string) (*Repo, error) {
-	gitCmd := func(args ...string) (string, error) {
-		cmd := exec.Command("git", args...)
-		if dir != "" {
-			cmd.Dir = dir
-		}
-		out, err := cmd.Output()
-		if err != nil {
-			return "", err
-		}
-		return strings.TrimSpace(string(out)), nil
-	}
-
-	gitDir, err := gitCmd("rev-parse", "--git-dir")
-	if err != nil {
+	// Check if we're in a git repository
+	if !IsGitRepo() {
 		return nil, fmt.Errorf("not a git repository (or any of the parent directories)")
 	}
 
-	commonDir, err := gitCmd("rev-parse", "--git-common-dir")
+	repo := &Repo{}
+
+	// Get git directory (handles worktrees)
+	gitDir, err := exec.Command("git", "rev-parse", "--git-dir").Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get git directory: %w", err)
+	}
+	repo.gitDir = strings.TrimSpace(string(gitDir))
+
+	// Get common git directory (shared across worktrees)
+	commonDir, err := exec.Command("git", "rev-parse", "--git-common-dir").Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get git common directory: %w", err)
 	}
+	repo.commonDir = strings.TrimSpace(string(commonDir))
 
-	workDir, err := gitCmd("rev-parse", "--show-toplevel")
+	// Get working directory
+	workDir, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get working directory: %w", err)
 	}
+	repo.workDir = strings.TrimSpace(string(workDir))
 
-	// Resolve relative paths when dir is provided (rev-parse returns
-	// relative paths like ".git" when run via cmd.Dir)
-	if dir != "" {
-		if !filepath.IsAbs(gitDir) {
-			gitDir = filepath.Join(dir, gitDir)
-		}
-		if !filepath.IsAbs(commonDir) {
-			commonDir = filepath.Join(dir, commonDir)
-		}
-	}
-
-	return &Repo{
-		workDir:   workDir,
-		gitDir:    gitDir,
-		commonDir: commonDir,
-	}, nil
+	return repo, nil
 }
 
 // IsGitRepo checks if the current directory is inside a git repository
@@ -104,10 +84,9 @@ func (r *Repo) GetMetadataPath() string {
 	return filepath.Join(r.commonDir, ".gs_stack_metadata")
 }
 
-// RunGitCommand executes a git command in the repo's working directory and returns output
+// RunGitCommand executes a git command and returns output
 func (r *Repo) RunGitCommand(args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
-	cmd.Dir = r.workDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("git %s failed: %w\n%s", strings.Join(args, " "), err, string(output))
@@ -124,10 +103,9 @@ func (r *Repo) GetRemoteURL(remote string) (string, error) {
 	return output, nil
 }
 
-// RunGitCommandWithStdin executes a git command with stdin data in the repo's working directory
+// RunGitCommandWithStdin executes a git command with stdin data and returns output
 func (r *Repo) RunGitCommandWithStdin(stdin string, args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
-	cmd.Dir = r.workDir
 	cmd.Stdin = strings.NewReader(stdin)
 	output, err := cmd.CombinedOutput()
 	if err != nil {

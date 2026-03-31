@@ -22,13 +22,10 @@ type Commit struct {
 	Message string
 }
 
-// columnLayout tracks which column each node is assigned to and caches
-// sorted children to avoid repeated sorting and git subprocess calls.
+// columnLayout tracks which column each node is assigned to
 type columnLayout struct {
-	columns        map[string]int      // node name → column index
-	maxColumn      int
-	sortedCache    map[string][]*Node  // node name → sorted children (cached)
-	timestampCache map[string]int64    // branch name → commit timestamp (cached)
+	columns   map[string]int // node name → column index
+	maxColumn int
 }
 
 // assignColumns recursively assigns columns to all nodes.
@@ -39,7 +36,7 @@ func (cl *columnLayout) assignColumns(node *Node, col int, repo *git.Repo) {
 		cl.maxColumn = col
 	}
 
-	children := cl.getSortedChildren(repo, node)
+	children := sortedChildren(repo, node)
 	for i, child := range children {
 		if i == 0 {
 			// Primary (oldest) child inherits parent's column
@@ -52,45 +49,29 @@ func (cl *columnLayout) assignColumns(node *Node, col int, repo *git.Repo) {
 	}
 }
 
-// getSortedChildren returns children sorted oldest-first, caching the result
-// so that repeated calls during layout and rendering don't re-sort or re-fetch
-// git timestamps.
-func (cl *columnLayout) getSortedChildren(repo *git.Repo, node *Node) []*Node {
+// sortedChildren returns children sorted oldest-first (ascending timestamp).
+// Falls back to alphabetical sort when repo is nil.
+func sortedChildren(repo *git.Repo, node *Node) []*Node {
 	if len(node.Children) == 0 {
 		return nil
 	}
-	if cached, ok := cl.sortedCache[node.Name]; ok {
-		return cached
-	}
-
-	var sorted []*Node
 	if repo != nil {
-		sorted = cl.sortChildrenOldestFirst(repo, node.Children)
-	} else {
-		sorted = node.SortedChildren()
+		return sortChildrenOldestFirst(repo, node.Children)
 	}
-	cl.sortedCache[node.Name] = sorted
-	return sorted
+	return node.SortedChildren()
 }
 
 // sortChildrenOldestFirst sorts children by commit time ascending (oldest first).
-// Uses the layout's timestamp cache to avoid redundant git subprocess calls.
-func (cl *columnLayout) sortChildrenOldestFirst(repo *git.Repo, children []*Node) []*Node {
+func sortChildrenOldestFirst(repo *git.Repo, children []*Node) []*Node {
 	if len(children) == 0 {
 		return nil
 	}
 	sorted := make([]*Node, len(children))
 	copy(sorted, children)
 
-	timestamps := make(map[string]int64, len(sorted))
+	timestamps := make(map[string]int64)
 	for _, child := range sorted {
-		if ts, ok := cl.timestampCache[child.Name]; ok {
-			timestamps[child.Name] = ts
-		} else {
-			ts := getCommitTimestamp(repo, child.Name)
-			cl.timestampCache[child.Name] = ts
-			timestamps[child.Name] = ts
-		}
+		timestamps[child.Name] = getCommitTimestamp(repo, child.Name)
 	}
 
 	sort.Slice(sorted, func(i, j int) bool {
@@ -109,7 +90,7 @@ type flattenedNode struct {
 // flattenBranch produces the render order for a node's primary chain and secondary subtrees.
 // Primary (oldest) child above, then secondary children above (with sub-merge), then this node.
 func flattenBranch(node *Node, repo *git.Repo, layout *columnLayout) []flattenedNode {
-	children := layout.getSortedChildren(repo, node)
+	children := sortedChildren(repo, node)
 	var result []flattenedNode
 
 	// Primary child's subtree above
@@ -132,7 +113,7 @@ func flattenBranch(node *Node, repo *git.Repo, layout *columnLayout) []flattened
 
 // flattenTree produces the full render order: all branches above trunk, then trunk.
 func flattenTree(s *Stack, repo *git.Repo, layout *columnLayout) []flattenedNode {
-	children := layout.getSortedChildren(repo, s.Trunk)
+	children := sortedChildren(repo, s.Trunk)
 	var result []flattenedNode
 
 	for _, child := range children {
@@ -161,11 +142,7 @@ func buildColumnPrefix(activeCols map[int]bool, upTo int) string {
 // RenderTree renders the stack as a column-based tree with commits.
 // Older branches at top, newer branches closer to trunk at bottom.
 func (s *Stack) RenderTree(repo *git.Repo, opts TreeOptions) string {
-	layout := &columnLayout{
-		columns:        make(map[string]int),
-		sortedCache:    make(map[string][]*Node),
-		timestampCache: make(map[string]int64),
-	}
+	layout := &columnLayout{columns: make(map[string]int)}
 	layout.assignColumns(s.Trunk, 0, repo)
 
 	flat := flattenTree(s, repo, layout)
@@ -219,10 +196,9 @@ func (s *Stack) RenderTree(repo *git.Repo, opts TreeOptions) string {
 			result.WriteString(colors.Muted(" (current)"))
 		}
 
-		// Fetch commits once for both time-ago and commit lines
-		var commits []Commit
+		// Time ago
 		if repo != nil {
-			commits = s.getBranchCommits(repo, node)
+			commits := s.getBranchCommits(repo, node)
 			if len(commits) > 0 {
 				timeAgo := getTimeSinceLastCommit(repo, node.Name)
 				if timeAgo != "" {
@@ -234,6 +210,7 @@ func (s *Stack) RenderTree(repo *git.Repo, opts TreeOptions) string {
 
 		// Commit lines
 		if repo != nil {
+			commits := s.getBranchCommits(repo, node)
 			for ci, commit := range commits {
 				cPrefix := buildColumnPrefix(activeCols, col)
 				result.WriteString(cPrefix)
@@ -446,11 +423,7 @@ func findMaxActiveSecondaryCol(node *Node, layout *columnLayout) int {
 
 // RenderShort renders a compact column-based view of the stack (no commits).
 func (s *Stack) RenderShort(repo *git.Repo) string {
-	layout := &columnLayout{
-		columns:        make(map[string]int),
-		sortedCache:    make(map[string][]*Node),
-		timestampCache: make(map[string]int64),
-	}
+	layout := &columnLayout{columns: make(map[string]int)}
 	layout.assignColumns(s.Trunk, 0, repo)
 
 	flat := flattenTree(s, repo, layout)
@@ -604,6 +577,27 @@ func getCommitTimestamp(repo *git.Repo, branch string) int64 {
 		return 0
 	}
 	return timestamp
+}
+
+// sortChildrenByTime sorts children by their last commit time (newer first).
+// Kept for backward compatibility with tests.
+func sortChildrenByTime(repo *git.Repo, children []*Node) []*Node {
+	if len(children) == 0 {
+		return nil
+	}
+	sorted := make([]*Node, len(children))
+	copy(sorted, children)
+
+	timestamps := make(map[string]int64)
+	for _, child := range sorted {
+		timestamps[child.Name] = getCommitTimestamp(repo, child.Name)
+	}
+
+	sort.Slice(sorted, func(i, j int) bool {
+		return timestamps[sorted[i].Name] > timestamps[sorted[j].Name]
+	})
+
+	return sorted
 }
 
 // getTrunkCommits returns the last n commits on trunk

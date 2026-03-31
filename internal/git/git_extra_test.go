@@ -851,10 +851,25 @@ func TestResetToRemoteDetachedHead(t *testing.T) {
 }
 
 func TestHasUncommittedChangesError(t *testing.T) {
-	badRepo := &Repo{workDir: "/nonexistent-dir-for-test"}
-	_, err := badRepo.HasUncommittedChanges()
+	_, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	repo, err := NewRepo()
+	if err != nil {
+		t.Fatalf("NewRepo failed: %v", err)
+	}
+
+	// Move to a non-git directory so git status fails
+	nonRepo := t.TempDir()
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(nonRepo); err != nil {
+		t.Fatalf("Chdir failed: %v", err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+
+	_, err = repo.HasUncommittedChanges()
 	if err == nil {
-		t.Error("expected error for HasUncommittedChanges with invalid workDir")
+		t.Error("expected error for HasUncommittedChanges outside git repo")
 	}
 }
 
@@ -895,26 +910,71 @@ func TestCanFastForwardError(t *testing.T) {
 }
 
 func TestWriteRefError(t *testing.T) {
-	badRepo := &Repo{workDir: "/nonexistent-dir-for-test"}
-	err := badRepo.WriteRef("test/error", []byte("data"))
+	_, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	repo, err := NewRepo()
+	if err != nil {
+		t.Fatalf("NewRepo failed: %v", err)
+	}
+
+	// Move to non-git dir to trigger hash-object failure
+	nonRepo := t.TempDir()
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(nonRepo); err != nil {
+		t.Fatalf("Chdir failed: %v", err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+
+	err = repo.WriteRef("test/error", []byte("data"))
 	if err == nil {
-		t.Error("expected error for WriteRef with invalid workDir")
+		t.Error("expected error for WriteRef outside git repo")
 	}
 }
 
 func TestDeleteRefError(t *testing.T) {
-	badRepo := &Repo{workDir: "/nonexistent-dir-for-test"}
-	err := badRepo.DeleteRef("test/error")
+	_, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	repo, err := NewRepo()
+	if err != nil {
+		t.Fatalf("NewRepo failed: %v", err)
+	}
+
+	// Move to non-git dir to trigger update-ref failure
+	nonRepo := t.TempDir()
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(nonRepo); err != nil {
+		t.Fatalf("Chdir failed: %v", err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+
+	err = repo.DeleteRef("test/error")
 	if err == nil {
-		t.Error("expected error for DeleteRef with invalid workDir")
+		t.Error("expected error for DeleteRef outside git repo")
 	}
 }
 
 func TestListRefsError(t *testing.T) {
-	badRepo := &Repo{workDir: "/nonexistent-dir-for-test"}
-	_, err := badRepo.ListRefs("test/")
+	_, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	repo, err := NewRepo()
+	if err != nil {
+		t.Fatalf("NewRepo failed: %v", err)
+	}
+
+	// Move to non-git dir to trigger for-each-ref failure
+	nonRepo := t.TempDir()
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(nonRepo); err != nil {
+		t.Fatalf("Chdir failed: %v", err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+
+	_, err = repo.ListRefs("test/")
 	if err == nil {
-		t.Error("expected error for ListRefs with invalid workDir")
+		t.Error("expected error for ListRefs outside git repo")
 	}
 }
 
@@ -967,10 +1027,28 @@ func TestDeleteRemoteRefError(t *testing.T) {
 }
 
 func TestConfigureRefspecError(t *testing.T) {
-	badRepo := &Repo{workDir: "/nonexistent-dir-for-test"}
-	err := badRepo.ConfigureRefspec("origin", "+refs/gs/*:refs/gs/*")
+	_, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	repo, err := NewRepo()
+	if err != nil {
+		t.Fatalf("NewRepo failed: %v", err)
+	}
+
+	// No remote configured, so config --add for remote.nonexistent.fetch should fail
+	// First, HasRefspec will return false (no error, just no config), then config --add will fail
+	// Actually git config --add will succeed even for non-existent remotes, it just adds a config key.
+	// So this won't error. Let me try a different approach - move to non-git dir.
+	nonRepo := t.TempDir()
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(nonRepo); err != nil {
+		t.Fatalf("Chdir failed: %v", err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+
+	err = repo.ConfigureRefspec("origin", "+refs/gs/*:refs/gs/*")
 	if err == nil {
-		t.Error("expected error for ConfigureRefspec with invalid workDir")
+		t.Error("expected error for ConfigureRefspec outside git repo")
 	}
 }
 

@@ -10,7 +10,6 @@ import (
 	"github.com/israelmalagutti/git-stack/internal/colors"
 	"github.com/israelmalagutti/git-stack/internal/config"
 	"github.com/israelmalagutti/git-stack/internal/git"
-	"github.com/israelmalagutti/git-stack/internal/ops"
 	"github.com/spf13/cobra"
 )
 
@@ -87,15 +86,35 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("branch name cannot be empty")
 	}
 
-	// Create branch, checkout, track in metadata, and push refs
+	// Check if branch already exists
+	if repo.BranchExists(branchName) {
+		return fmt.Errorf("branch '%s' already exists", branchName)
+	}
+
+	// Create and checkout the new branch
+	if err := repo.CreateBranch(branchName); err != nil {
+		return err
+	}
+
+	if err := repo.CheckoutBranch(branchName); err != nil {
+		return err
+	}
+
+	// Track the branch in metadata
 	metadata, err := loadMetadata(repo)
 	if err != nil {
 		return fmt.Errorf("failed to load metadata: %w", err)
 	}
 
-	if _, err := ops.CreateBranch(repo, metadata, branchName, currentBranch); err != nil {
-		return err
+	parentSHA, _ := repo.GetBranchCommit(currentBranch)
+	metadata.TrackBranch(branchName, currentBranch, parentSHA)
+
+	if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
+		return fmt.Errorf("failed to save metadata: %w", err)
 	}
+
+	// Push new branch's metadata ref to remote
+	pushMetadataRefs(repo, branchName)
 
 	colors.PrintCreated(branchName, currentBranch)
 

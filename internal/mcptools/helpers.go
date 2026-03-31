@@ -53,16 +53,34 @@ func loadRepoState() (*repoState, error) {
 	}, nil
 }
 
-const defaultRemote = config.DefaultRemote
+const defaultRemote = "origin"
 
-// pushMetadataRefs delegates to config.PushMetadataRefs.
+// pushMetadataRefs pushes the specified branches' metadata refs to the remote.
+// Best-effort: silently skips if no remote exists. Batches multiple branches
+// into a single git push for efficiency.
 func pushMetadataRefs(repo *git.Repo, branches ...string) {
-	config.PushMetadataRefs(repo, branches...)
+	if !repo.HasRemote(defaultRemote) {
+		return
+	}
+	if len(branches) == 0 {
+		_ = config.PushAllRefs(repo, defaultRemote)
+		return
+	}
+	// Batch into single push
+	refspecs := make([]string, 0, len(branches))
+	for _, branch := range branches {
+		ref := "refs/gs/meta/" + git.EncodeBranchRef(branch)
+		refspecs = append(refspecs, ref+":"+ref)
+	}
+	_ = repo.PushRefs(defaultRemote, refspecs...)
 }
 
-// deleteRemoteMetadataRef delegates to config.DeleteRemoteMetadataRef.
+// deleteRemoteMetadataRef deletes a branch's metadata ref from the remote. Best-effort.
 func deleteRemoteMetadataRef(repo *git.Repo, branch string) {
-	config.DeleteRemoteMetadataRef(repo, branch)
+	if !repo.HasRemote(defaultRemote) {
+		return
+	}
+	_ = config.DeleteRemoteBranchMeta(repo, defaultRemote, branch)
 }
 
 // jsonResult marshals data to JSON and returns an MCP text result.

@@ -6,6 +6,8 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
@@ -29,17 +31,38 @@ func init() {
 }
 
 func runTop(cmd *cobra.Command, args []string) error {
-	rs, err := loadRepoState()
+	// Initialize repository
+	repo, err := git.NewRepo()
+	if err != nil {
+		return fmt.Errorf("failed to initialize repository: %w", err)
+	}
+
+	// Load config
+	cfg, err := config.Load(repo.GetConfigPath())
 	if err != nil {
 		return err
 	}
 
-	currentBranch, err := rs.Repo.GetCurrentBranch()
+	// Load metadata
+	metadata, err := loadMetadata(repo)
+	if err != nil {
+		return fmt.Errorf("failed to load metadata: %w", err)
+	}
+
+	// Get current branch
+	currentBranch, err := repo.GetCurrentBranch()
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	node := rs.Stack.GetNode(currentBranch)
+	// Build stack
+	s, err := stack.BuildStack(repo, cfg, metadata)
+	if err != nil {
+		return fmt.Errorf("failed to build stack: %w", err)
+	}
+
+	// Get current node
+	node := s.GetNode(currentBranch)
 	if node == nil {
 		return fmt.Errorf("branch '%s' not found in stack", currentBranch)
 	}
@@ -83,7 +106,7 @@ func runTop(cmd *cobra.Command, args []string) error {
 	}
 
 	// Checkout target
-	if err := rs.Repo.CheckoutBranch(targetBranch); err != nil {
+	if err := repo.CheckoutBranch(targetBranch); err != nil {
 		return fmt.Errorf("failed to checkout '%s': %w", targetBranch, err)
 	}
 

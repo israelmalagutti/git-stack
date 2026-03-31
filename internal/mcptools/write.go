@@ -7,7 +7,6 @@ import (
 	"github.com/israelmalagutti/git-stack/internal/config"
 	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/israelmalagutti/git-stack/internal/land"
-	"github.com/israelmalagutti/git-stack/internal/ops"
 	"github.com/israelmalagutti/git-stack/internal/provider"
 	"github.com/israelmalagutti/git-stack/internal/repair"
 	"github.com/israelmalagutti/git-stack/internal/stack"
@@ -344,22 +343,43 @@ func handleCreate(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 		return errResult(err.Error()), nil
 	}
 
-	result, err := ops.CreateBranch(state.Repo, state.Metadata, name, state.Stack.Current)
-	if err != nil {
-		return errResult(err.Error()), nil
+	parentBranch := state.Stack.Current
+
+	if state.Repo.BranchExists(name) {
+		return errResult(fmt.Sprintf("branch '%s' already exists", name)), nil
 	}
+
+	// Create and checkout the new branch
+	if err := state.Repo.CreateBranch(name); err != nil {
+		return errResult(fmt.Sprintf("failed to create branch: %v", err)), nil
+	}
+	if err := state.Repo.CheckoutBranch(name); err != nil {
+		return errResult(fmt.Sprintf("failed to checkout branch: %v", err)), nil
+	}
+
+	// Track in metadata
+	parentSHA, _ := state.Repo.GetBranchCommit(parentBranch)
+	state.Metadata.TrackBranch(name, parentBranch, parentSHA)
+	if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
+		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
+	}
+	pushMetadataRefs(state.Repo, name)
 
 	// Optionally commit
 	commitCreated := false
 	if commitMsg != "" {
-		if _, err := state.Repo.RunGitCommand("commit", "-m", commitMsg); err == nil {
+		_, err := state.Repo.RunGitCommand("commit", "-m", commitMsg)
+		if err != nil {
+			// Commit failed (probably no staged changes) — not fatal
+			commitCreated = false
+		} else {
 			commitCreated = true
 		}
 	}
 
 	return jsonResult(createResponse{
-		Branch:        result.Branch,
-		Parent:        result.Parent,
+		Branch:        name,
+		Parent:        parentBranch,
 		CommitCreated: commitCreated,
 	})
 }
@@ -400,16 +420,65 @@ func handleDelete(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 		return errResult(err.Error()), nil
 	}
 
-	result, err := ops.DeleteBranch(state.Repo, state.Metadata, state.Stack, branchName)
-	if err != nil {
-		return errResult(err.Error()), nil
+	// Validate
+	if branchName == state.Config.Trunk {
+		return errResult("cannot delete trunk branch"), nil
+	}
+	if !state.Repo.BranchExists(branchName) {
+		return errResult(fmt.Sprintf("branch '%s' does not exist", branchName)), nil
+	}
+	if !state.Metadata.IsTracked(branchName) {
+		return errResult(fmt.Sprintf("branch '%s' is not tracked by gs", branchName)), nil
+	}
+
+	node := state.Stack.GetNode(branchName)
+	if node == nil {
+		return errResult("branch not found in stack"), nil
+	}
+
+	parentBranch, ok := state.Metadata.GetParent(branchName)
+	if !ok {
+		return errResult("branch has no parent"), nil
+	}
+
+	// If deleting current branch, checkout parent first
+	checkedOut := ""
+	if branchName == state.Stack.Current {
+		if err := state.Repo.CheckoutBranch(parentBranch); err != nil {
+			return errResult(fmt.Sprintf("failed to checkout parent: %v", err)), nil
+		}
+		checkedOut = parentBranch
+	}
+
+	// Reparent children
+	reparented := make([]string, 0, len(node.Children))
+	for _, child := range node.Children {
+		if err := state.Metadata.UpdateParent(child.Name, parentBranch); err != nil {
+			return errResult(fmt.Sprintf("failed to reparent '%s': %v", child.Name, err)), nil
+		}
+		reparented = append(reparented, child.Name)
+	}
+
+	// Delete the git branch
+	if _, err := state.Repo.RunGitCommand("branch", "-D", branchName); err != nil {
+		return errResult(fmt.Sprintf("failed to delete branch: %v", err)), nil
+	}
+
+	// Remove from metadata
+	state.Metadata.UntrackBranch(branchName)
+	if err := state.Metadata.SaveWithRefs(state.Repo, state.Repo.GetMetadataPath()); err != nil {
+		return errResult(fmt.Sprintf("failed to save metadata: %v", err)), nil
+	}
+	deleteRemoteMetadataRef(state.Repo, branchName)
+	if len(reparented) > 0 {
+		pushMetadataRefs(state.Repo, reparented...)
 	}
 
 	return jsonResult(deleteResponse{
-		Deleted:            result.Deleted,
-		ReparentedChildren: result.ReparentedChildren,
-		NewParent:          result.NewParent,
-		CheckedOut:         result.CheckedOut,
+		Deleted:            branchName,
+		ReparentedChildren: reparented,
+		NewParent:          parentBranch,
+		CheckedOut:         checkedOut,
 	})
 }
 

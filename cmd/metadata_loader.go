@@ -2,13 +2,14 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/israelmalagutti/git-stack/internal/config"
 	"github.com/israelmalagutti/git-stack/internal/git"
 )
 
 // defaultRemote is the remote used for ref sync operations.
-const defaultRemote = config.DefaultRemote
+const defaultRemote = "origin"
 
 // ensureRefspec is a one-time check per process. Once the refspec is confirmed
 // configured, we skip the check for all subsequent loadMetadata calls.
@@ -52,9 +53,32 @@ func repoHasRemote(repo *git.Repo) bool {
 	return repo.HasRemote(defaultRemote)
 }
 
-// pushMetadataRefs delegates to config.PushMetadataRefs.
+// pushMetadataRefs pushes the specified branches' metadata refs to the remote.
+// If no branches are specified, pushes all refs. Best-effort: silently skips
+// if no remote exists.
 func pushMetadataRefs(repo *git.Repo, branches ...string) {
-	config.PushMetadataRefs(repo, branches...)
+	if !repoHasRemote(repo) {
+		return
+	}
+
+	if len(branches) == 0 {
+		if err := config.PushAllRefs(repo, defaultRemote); err != nil {
+			fmt.Printf("⚠ Could not push metadata refs to %s: %v\n", defaultRemote, err)
+		}
+		return
+	}
+
+	// Batch multiple branches into a single git push
+	refspecs := make([]string, 0, len(branches))
+	for _, branch := range branches {
+		ref := "refs/gs/meta/" + git.EncodeBranchRef(branch)
+		refspecs = append(refspecs, ref+":"+ref)
+	}
+
+	if err := repo.PushRefs(defaultRemote, refspecs...); err != nil {
+		failed := strings.Join(branches, ", ")
+		fmt.Printf("⚠ Could not push metadata refs for [%s] to %s: %v\n", failed, defaultRemote, err)
+	}
 }
 
 // pushConfigRef pushes refs/gs/config to the remote. Best-effort.
@@ -67,9 +91,13 @@ func pushConfigRef(repo *git.Repo) {
 	}
 }
 
-// deleteRemoteMetadataRef delegates to config.DeleteRemoteMetadataRef.
+// deleteRemoteMetadataRef deletes a branch's metadata ref from the remote. Best-effort.
 func deleteRemoteMetadataRef(repo *git.Repo, branch string) {
-	config.DeleteRemoteMetadataRef(repo, branch)
+	if !repoHasRemote(repo) {
+		return
+	}
+	// Best-effort: ignore errors (ref may not exist on remote)
+	_ = config.DeleteRemoteBranchMeta(repo, defaultRemote, branch)
 }
 
 // fetchMetadataRefs fetches all refs/gs/* from the remote. Best-effort.

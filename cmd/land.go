@@ -49,12 +49,20 @@ func init() {
 }
 
 func runLand(cmd *cobra.Command, args []string) error {
-	rs, err := loadRepoConfig()
+	repo, err := git.NewRepo()
+	if err != nil {
+		return fmt.Errorf("failed to initialize repository: %w", err)
+	}
+
+	cfg, err := config.Load(repo.GetConfigPath())
 	if err != nil {
 		return err
 	}
 
-	repo, cfg, metadata := rs.Repo, rs.Config, rs.Metadata
+	metadata, err := loadMetadata(repo)
+	if err != nil {
+		return fmt.Errorf("failed to load metadata: %w", err)
+	}
 
 	// Detect provider (best-effort — nil is OK for no-PR flow)
 	var prov provider.Provider

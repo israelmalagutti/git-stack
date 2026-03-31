@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/israelmalagutti/git-stack/internal/config"
 	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
@@ -43,13 +44,25 @@ func init() {
 }
 
 func runModify(cmd *cobra.Command, args []string) error {
-	rs, err := loadRepoConfig()
+	// Initialize repository
+	repo, err := git.NewRepo()
+	if err != nil {
+		return fmt.Errorf("failed to initialize repository: %w", err)
+	}
+
+	// Load config
+	cfg, err := config.Load(repo.GetConfigPath())
 	if err != nil {
 		return err
 	}
 
-	repo, cfg, metadata := rs.Repo, rs.Config, rs.Metadata
+	// Load metadata
+	metadata, err := loadMetadata(repo)
+	if err != nil {
+		return fmt.Errorf("failed to load metadata: %w", err)
+	}
 
+	// Get current branch
 	currentBranch, err := repo.GetCurrentBranch()
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)

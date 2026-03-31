@@ -7,6 +7,8 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/israelmalagutti/git-stack/internal/colors"
+	"github.com/israelmalagutti/git-stack/internal/config"
+	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/israelmalagutti/git-stack/internal/repair"
 	"github.com/spf13/cobra"
 )
@@ -42,12 +44,22 @@ func init() {
 }
 
 func runRepair(cmd *cobra.Command, args []string) error {
-	rs, err := loadRepoConfig()
+	repo, err := git.NewRepo()
+	if err != nil {
+		return fmt.Errorf("failed to initialize repository: %w", err)
+	}
+
+	cfg, err := config.Load(repo.GetConfigPath())
 	if err != nil {
 		return err
 	}
 
-	issues, err := repair.DetectIssues(rs.Repo, rs.Metadata, rs.Config)
+	metadata, err := loadMetadata(repo)
+	if err != nil {
+		return fmt.Errorf("failed to load metadata: %w", err)
+	}
+
+	issues, err := repair.DetectIssues(repo, metadata, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to scan for issues: %w", err)
 	}
@@ -88,7 +100,7 @@ func runRepair(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		if err := repair.ApplyFix(rs.Repo, rs.Metadata, rs.Config, iss); err != nil {
+		if err := repair.ApplyFix(repo, metadata, cfg, iss); err != nil {
 			fmt.Printf("  %s Failed to fix '%s': %v\n", colors.Warning("⚠"), iss.Branch, err)
 			continue
 		}
@@ -97,10 +109,10 @@ func runRepair(cmd *cobra.Command, args []string) error {
 	}
 
 	if fixed > 0 {
-		if err := rs.Metadata.SaveWithRefs(rs.Repo, rs.Repo.GetMetadataPath()); err != nil {
+		if err := metadata.SaveWithRefs(repo, repo.GetMetadataPath()); err != nil {
 			return fmt.Errorf("failed to save metadata: %w", err)
 		}
-		pushMetadataRefs(rs.Repo)
+		pushMetadataRefs(repo)
 		fmt.Printf("\n%s Fixed %d issue(s).\n", colors.Success("✓"), fixed)
 	} else {
 		fmt.Println(colors.Muted("No fixes applied."))
