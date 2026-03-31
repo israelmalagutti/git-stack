@@ -62,9 +62,8 @@ func runUntrack(cmd *cobra.Command, args []string) error {
 		branchToUntrack = currentBranch
 	}
 
-	// Can't untrack trunk
-	if branchToUntrack == cfg.Trunk {
-		return fmt.Errorf("cannot untrack trunk branch '%s'", cfg.Trunk)
+	if err := validateNotTrunk(branchToUntrack, cfg.Trunk, "untrack"); err != nil {
+		return err
 	}
 
 	// Load metadata

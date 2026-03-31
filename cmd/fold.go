@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/israelmalagutti/git-stack/internal/config"
-	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
@@ -41,38 +39,20 @@ func init() {
 }
 
 func runFold(cmd *cobra.Command, args []string) error {
-	// Initialize repository
-	repo, err := git.NewRepo()
-	if err != nil {
-		return fmt.Errorf("failed to initialize repository: %w", err)
-	}
-
-	// Load config
-	cfg, err := config.Load(repo.GetConfigPath())
+	rs, err := loadRepoConfig()
 	if err != nil {
 		return err
 	}
 
-	// Load metadata
-	metadata, err := loadMetadata(repo)
-	if err != nil {
-		return fmt.Errorf("failed to load metadata: %w", err)
-	}
+	repo, cfg, metadata := rs.Repo, rs.Config, rs.Metadata
 
-	// Get current branch
 	currentBranch, err := repo.GetCurrentBranch()
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	// Don't fold trunk
-	if currentBranch == cfg.Trunk {
-		return fmt.Errorf("cannot fold trunk branch")
-	}
-
-	// Check if current branch is tracked
-	if !metadata.IsTracked(currentBranch) {
-		return fmt.Errorf("branch '%s' is not tracked by gs", currentBranch)
+	if err := validateNotTrunkAndTracked(metadata, currentBranch, cfg.Trunk, "fold"); err != nil {
+		return err
 	}
 
 	// Get parent branch

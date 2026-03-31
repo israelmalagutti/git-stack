@@ -257,11 +257,17 @@ func TestSortChildrenByTime(t *testing.T) {
 		t.Fatalf("BuildStack failed: %v", err)
 	}
 
-	children := sortChildrenByTime(repo, s.Trunk.Children)
+	layout := &columnLayout{
+		columns:        make(map[string]int),
+		sortedCache:    make(map[string][]*Node),
+		timestampCache: make(map[string]int64),
+	}
+	children := layout.getSortedChildren(repo, s.Trunk)
 	if len(children) != 2 {
 		t.Fatalf("expected 2 children, got %d", len(children))
 	}
-	if children[0].Name != "feat-new" {
-		t.Fatalf("expected newest branch first, got %s", children[0].Name)
+	// Layout sorts oldest-first for rendering
+	if children[0].Name != "feat-old" {
+		t.Fatalf("expected oldest branch first, got %s", children[0].Name)
 	}
 }
