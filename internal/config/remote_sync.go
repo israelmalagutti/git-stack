@@ -29,7 +29,7 @@ func PushMetadataRefs(repo *git.Repo, branches ...string) {
 	refspecs := make([]string, 0, len(branches))
 	for _, branch := range branches {
 		ref := "refs/gs/meta/" + git.EncodeBranchRef(branch)
-		refspecs = append(refspecs, ref+":"+ref)
+		refspecs = append(refspecs, "+"+ref+":"+ref)
 	}
 
 	if err := repo.PushRefs(DefaultRemote, refspecs...); err != nil {
