@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/israelmalagutti/git-stack/internal/colors"
 )
 
 func TestRenderShortAndPath(t *testing.T) {
@@ -132,6 +134,87 @@ func TestCommitHelpersWithRepo(t *testing.T) {
 
 	if s.RenderPath("missing") != "" {
 		t.Fatalf("expected empty path for missing branch")
+	}
+}
+
+func TestFormatPRLink(t *testing.T) {
+	colors.SetEnabled(false)
+	defer colors.SetEnabled(false)
+
+	// No PR number → empty string
+	node := &Node{Name: "feat-a"}
+	if got := formatPRLink(node); got != "" {
+		t.Errorf("expected empty, got %q", got)
+	}
+
+	// PR number without URL → plain #N
+	node.PRNumber = 42
+	got := formatPRLink(node)
+	if !strings.Contains(got, "#42") {
+		t.Errorf("expected #42 in %q", got)
+	}
+
+	// PR number with URL → still contains #N (hyperlink escapes stripped when colors disabled)
+	node.PRURL = "https://github.com/owner/repo/pull/42"
+	got = formatPRLink(node)
+	if !strings.Contains(got, "#42") {
+		t.Errorf("expected #42 in %q", got)
+	}
+}
+
+func TestSetPRURLs(t *testing.T) {
+	trunk := &Node{Name: "main", IsTrunk: true}
+	a := &Node{Name: "feat-a", Parent: trunk, PRNumber: 10}
+	b := &Node{Name: "feat-b", Parent: trunk}
+	trunk.Children = []*Node{a, b}
+
+	s := &Stack{
+		Trunk: trunk,
+		Nodes: map[string]*Node{
+			"main":   trunk,
+			"feat-a": a,
+			"feat-b": b,
+		},
+	}
+
+	s.SetPRURLs("https://github.com/owner/repo")
+
+	if a.PRURL != "https://github.com/owner/repo/pull/10" {
+		t.Errorf("expected PR URL for feat-a, got %q", a.PRURL)
+	}
+	if b.PRURL != "" {
+		t.Errorf("expected empty PR URL for feat-b, got %q", b.PRURL)
+	}
+	if trunk.PRURL != "" {
+		t.Errorf("expected empty PR URL for trunk, got %q", trunk.PRURL)
+	}
+}
+
+func TestRenderTreeWithPRLink(t *testing.T) {
+	colors.SetEnabled(false)
+	defer colors.SetEnabled(false)
+
+	trunk := &Node{Name: "main", IsTrunk: true}
+	a := &Node{Name: "feat-a", Parent: trunk, PRNumber: 7, PRURL: "https://github.com/o/r/pull/7"}
+	trunk.Children = []*Node{a}
+
+	s := &Stack{
+		Trunk: trunk,
+		Nodes: map[string]*Node{
+			"main":   trunk,
+			"feat-a": a,
+		},
+		TrunkName: "main",
+	}
+
+	tree := s.RenderTree(nil, TreeOptions{})
+	if !strings.Contains(tree, "#7") {
+		t.Errorf("expected #7 in tree output:\n%s", tree)
+	}
+
+	short := s.RenderShort(nil)
+	if !strings.Contains(short, "#7") {
+		t.Errorf("expected #7 in short output:\n%s", short)
 	}
 }
 

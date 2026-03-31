@@ -5,6 +5,7 @@ import (
 
 	"github.com/israelmalagutti/git-stack/internal/config"
 	"github.com/israelmalagutti/git-stack/internal/git"
+	"github.com/israelmalagutti/git-stack/internal/provider"
 	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
@@ -63,6 +64,13 @@ func runLog(cmd *cobra.Command, args []string) error {
 	// Validate stack
 	if err := s.ValidateStack(); err != nil {
 		return fmt.Errorf("invalid stack structure: %w", err)
+	}
+
+	// Populate PR URLs from remote (best-effort, non-fatal)
+	if remoteURL, err := repo.GetRemoteURL("origin"); err == nil {
+		if host, owner, repoName, err := provider.ParseRemoteURL(remoteURL); err == nil {
+			s.SetPRURLs(fmt.Sprintf("https://%s/%s/%s", host, owner, repoName))
+		}
 	}
 
 	// Render based on flags
