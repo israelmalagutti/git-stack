@@ -6,8 +6,6 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/israelmalagutti/git-stack/internal/config"
-	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
@@ -45,25 +43,13 @@ func init() {
 }
 
 func runMove(cmd *cobra.Command, args []string) error {
-	// Initialize repository
-	repo, err := git.NewRepo()
-	if err != nil {
-		return fmt.Errorf("failed to initialize repository: %w", err)
-	}
-
-	// Load config
-	cfg, err := config.Load(repo.GetConfigPath())
+	rs, err := loadRepoConfig()
 	if err != nil {
 		return err
 	}
 
-	// Load metadata
-	metadata, err := loadMetadata(repo)
-	if err != nil {
-		return fmt.Errorf("failed to load metadata: %w", err)
-	}
+	repo, cfg, metadata := rs.Repo, rs.Config, rs.Metadata
 
-	// Get current branch
 	currentBranch, err := repo.GetCurrentBranch()
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
@@ -75,14 +61,8 @@ func runMove(cmd *cobra.Command, args []string) error {
 		sourceBranch = currentBranch
 	}
 
-	// Don't move trunk
-	if sourceBranch == cfg.Trunk {
-		return fmt.Errorf("cannot move trunk branch")
-	}
-
-	// Check if source branch is tracked
-	if !metadata.IsTracked(sourceBranch) {
-		return fmt.Errorf("branch '%s' is not tracked by gs", sourceBranch)
+	if err := validateNotTrunkAndTracked(metadata, sourceBranch, cfg.Trunk, "move"); err != nil {
+		return err
 	}
 
 	// Determine target branch

@@ -3,9 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/israelmalagutti/git-stack/internal/config"
-	"github.com/israelmalagutti/git-stack/internal/git"
-	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
 )
 
@@ -31,22 +28,9 @@ func init() {
 }
 
 func runInfo(cmd *cobra.Command, args []string) error {
-	// Initialize repository
-	repo, err := git.NewRepo()
-	if err != nil {
-		return fmt.Errorf("failed to initialize repository: %w", err)
-	}
-
-	// Load config
-	cfg, err := config.Load(repo.GetConfigPath())
+	rs, err := loadRepoState()
 	if err != nil {
 		return err
-	}
-
-	// Load metadata
-	metadata, err := loadMetadata(repo)
-	if err != nil {
-		return fmt.Errorf("failed to load metadata: %w", err)
 	}
 
 	// Determine which branch to show info for
@@ -54,7 +38,7 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		branchName = args[0]
 	} else {
-		currentBranch, err := repo.GetCurrentBranch()
+		currentBranch, err := rs.Repo.GetCurrentBranch()
 		if err != nil {
 			return fmt.Errorf("failed to get current branch: %w", err)
 		}
@@ -62,15 +46,11 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	}
 
 	// Verify branch exists
-	if !repo.BranchExists(branchName) {
+	if !rs.Repo.BranchExists(branchName) {
 		return fmt.Errorf("branch '%s' does not exist", branchName)
 	}
 
-	// Build stack
-	s, err := stack.BuildStack(repo, cfg, metadata)
-	if err != nil {
-		return fmt.Errorf("failed to build stack: %w", err)
-	}
+	s := rs.Stack
 
 	// Get node
 	node := s.GetNode(branchName)
@@ -95,7 +75,7 @@ func runInfo(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Commit: %s\n", node.CommitSHA[:7])
 
 		// Get commit message
-		msg, err := repo.RunGitCommand("log", "-1", "--format=%s", branchName)
+		msg, err := rs.Repo.RunGitCommand("log", "-1", "--format=%s", branchName)
 		if err == nil && msg != "" {
 			fmt.Printf("Message: %s\n", msg)
 		}

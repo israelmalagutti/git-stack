@@ -8,7 +8,6 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/israelmalagutti/git-stack/internal/colors"
-	"github.com/israelmalagutti/git-stack/internal/config"
 	"github.com/israelmalagutti/git-stack/internal/git"
 	"github.com/israelmalagutti/git-stack/internal/stack"
 	"github.com/spf13/cobra"
@@ -47,34 +46,16 @@ func init() {
 }
 
 func runCheckout(cmd *cobra.Command, args []string) error {
-	// Initialize repository
-	repo, err := git.NewRepo()
-	if err != nil {
-		return fmt.Errorf("failed to initialize repository: %w", err)
-	}
-
-	// Load config
-	cfg, err := config.Load(repo.GetConfigPath())
+	rs, err := loadRepoState()
 	if err != nil {
 		return err
 	}
 
-	// Load metadata
-	metadata, err := loadMetadata(repo)
-	if err != nil {
-		return fmt.Errorf("failed to load metadata: %w", err)
-	}
-
-	// Build stack
-	s, err := stack.BuildStack(repo, cfg, metadata)
-	if err != nil {
-		return fmt.Errorf("failed to build stack: %w", err)
-	}
+	repo, cfg, metadata, s := rs.Repo, rs.Config, rs.Metadata, rs.Stack
 
 	// Handle --trunk flag
 	if checkoutTrunk {
-		targetBranch := cfg.Trunk
-		return checkoutBranch(repo, s, targetBranch)
+		return checkoutBranch(repo, s, cfg.Trunk)
 	}
 
 	// Determine which branch to checkout
@@ -99,7 +80,6 @@ func runCheckout(cmd *cobra.Command, args []string) error {
 		for _, branch := range branches {
 			// Handle --stack flag: only show current stack
 			if checkoutStack {
-				// Include if it's in the path from trunk to current, or is a descendant
 				path := s.FindPath(currentBranch)
 				inPath := false
 				for _, node := range path {
@@ -109,7 +89,6 @@ func runCheckout(cmd *cobra.Command, args []string) error {
 					}
 				}
 
-				// Also include descendants of current branch
 				isDescendant := false
 				if currentNode := s.GetNode(currentBranch); currentNode != nil {
 					isDescendant = isInDescendants(s, currentNode, branch)
@@ -120,7 +99,6 @@ func runCheckout(cmd *cobra.Command, args []string) error {
 				}
 			}
 
-			// Handle --show-untracked flag
 			if !checkoutShowUntracked && !metadata.IsTracked(branch) && branch != cfg.Trunk {
 				continue
 			}
@@ -134,38 +112,25 @@ func runCheckout(cmd *cobra.Command, args []string) error {
 
 		branches = filteredBranches
 
-		// Sort branches: trunk first, then tracked, then others
 		sort.Slice(branches, func(i, j int) bool {
-			bi := branches[i]
-			bj := branches[j]
-
-			// Trunk first
+			bi, bj := branches[i], branches[j]
 			if bi == cfg.Trunk {
 				return true
 			}
 			if bj == cfg.Trunk {
 				return false
 			}
-
-			// Tracked branches next
 			iTracked := metadata.IsTracked(bi)
 			jTracked := metadata.IsTracked(bj)
-			if iTracked && !jTracked {
-				return true
+			if iTracked != jTracked {
+				return iTracked
 			}
-			if !iTracked && jTracked {
-				return false
-			}
-
-			// Alphabetical
 			return bi < bj
 		})
 
-		// Create options with context
 		options := make([]string, len(branches))
 		copy(options, branches)
 
-		// Interactive selector
 		prompt := &survey.Select{
 			Message: "Select branch to checkout:",
 			Options: options,
@@ -173,24 +138,19 @@ func runCheckout(cmd *cobra.Command, args []string) error {
 				if value == cfg.Trunk {
 					return "(trunk)"
 				}
-
 				node := s.GetNode(value)
 				if node == nil {
 					return "(not tracked)"
 				}
-
-				// Show parent info
 				if node.Parent != nil {
 					return fmt.Sprintf("(parent: %s)", node.Parent.Name)
 				}
-
 				return ""
 			},
 		}
 
 		err = askOne(prompt, &targetBranch, survey.WithValidator(survey.Required))
 		if err != nil {
-			// Handle ESC/Ctrl+C gracefully
 			if errors.Is(err, terminal.InterruptErr) {
 				fmt.Println("Cancelled.")
 				return nil
