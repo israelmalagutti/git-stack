@@ -18,13 +18,13 @@ func newTestCmd(json, debug, noInteractive bool) *cobra.Command {
 	root.PersistentFlags().Bool("no-interactive", false, "")
 	root.AddCommand(cmd)
 	if json {
-		root.PersistentFlags().Set("json", "true")
+		_ = root.PersistentFlags().Set("json", "true")
 	}
 	if debug {
-		root.PersistentFlags().Set("debug", "true")
+		_ = root.PersistentFlags().Set("debug", "true")
 	}
 	if noInteractive {
-		root.PersistentFlags().Set("no-interactive", "true")
+		_ = root.PersistentFlags().Set("no-interactive", "true")
 	}
 	return cmd
 }
@@ -82,7 +82,7 @@ func TestPrintJSON(t *testing.T) {
 	data := map[string]string{"key": "value"}
 	err := PrintJSON(data)
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = old
 
 	if err != nil {
@@ -90,7 +90,7 @@ func TestPrintJSON(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	if !strings.Contains(output, "\"key\": \"value\"") {
@@ -109,11 +109,11 @@ func TestPrintJSONError(t *testing.T) {
 
 	PrintJSONError("test-cmd", errors.New("something failed"))
 
-	w.Close()
+	_ = w.Close()
 	os.Stderr = old
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	if !strings.Contains(output, "\"error\": \"something failed\"") {
@@ -132,11 +132,11 @@ func TestDebugf_Enabled(t *testing.T) {
 	cmd := newTestCmd(false, true, false)
 	Debugf(cmd, "hello %s", "world")
 
-	w.Close()
+	_ = w.Close()
 	os.Stderr = old
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	if !strings.Contains(output, "[debug]") {
@@ -155,11 +155,11 @@ func TestDebugf_Disabled(t *testing.T) {
 	cmd := newTestCmd(false, false, false)
 	Debugf(cmd, "should not appear")
 
-	w.Close()
+	_ = w.Close()
 	os.Stderr = old
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	if output != "" {

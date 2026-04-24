@@ -16,8 +16,8 @@ func TestGlobalFlags_Registered(t *testing.T) {
 }
 
 func TestGlobalFlags_JSONMode(t *testing.T) {
-	rootCmd.PersistentFlags().Set("json", "true")
-	defer rootCmd.PersistentFlags().Set("json", "false")
+	_ = rootCmd.PersistentFlags().Set("json", "true")
+	defer func() { _ = rootCmd.PersistentFlags().Set("json", "false") }()
 
 	if !cmdutil.JSONMode(rootCmd) {
 		t.Fatal("expected JSONMode true")
@@ -25,8 +25,8 @@ func TestGlobalFlags_JSONMode(t *testing.T) {
 }
 
 func TestGlobalFlags_DebugMode(t *testing.T) {
-	rootCmd.PersistentFlags().Set("debug", "true")
-	defer rootCmd.PersistentFlags().Set("debug", "false")
+	_ = rootCmd.PersistentFlags().Set("debug", "true")
+	defer func() { _ = rootCmd.PersistentFlags().Set("debug", "false") }()
 
 	if !cmdutil.DebugMode(rootCmd) {
 		t.Fatal("expected DebugMode true")

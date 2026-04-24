@@ -14,8 +14,8 @@ func TestRunLog_JSON(t *testing.T) {
 	repo.createBranch(t, "feat-a", "main")
 	repo.createBranch(t, "feat-b", "feat-a")
 
-	rootCmd.PersistentFlags().Set("json", "true")
-	defer rootCmd.PersistentFlags().Set("json", "false")
+	_ = rootCmd.PersistentFlags().Set("json", "true")
+	defer func() { _ = rootCmd.PersistentFlags().Set("json", "false") }()
 
 	old := captureStdout(t)
 	err := runLog(logCmd, nil)
@@ -56,8 +56,8 @@ func TestRunLog_JSON_Short_Ignored(t *testing.T) {
 
 	repo.createBranch(t, "feat-x", "main")
 
-	rootCmd.PersistentFlags().Set("json", "true")
-	defer rootCmd.PersistentFlags().Set("json", "false")
+	_ = rootCmd.PersistentFlags().Set("json", "true")
+	defer func() { _ = rootCmd.PersistentFlags().Set("json", "false") }()
 	logShort = true
 	defer func() { logShort = false }()
 
@@ -95,9 +95,9 @@ func captureStdout(t *testing.T) *stdoutCapture {
 
 func (c *stdoutCapture) restore(t *testing.T) string {
 	t.Helper()
-	c.w.Close()
+	_ = c.w.Close()
 	os.Stdout = c.old
 	var buf bytes.Buffer
-	buf.ReadFrom(c.r)
+	_, _ = buf.ReadFrom(c.r)
 	return buf.String()
 }
