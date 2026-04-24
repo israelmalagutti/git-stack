@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/israelmalagutti/git-stack/internal/cmdutil"
+	"github.com/israelmalagutti/git-stack/internal/colors"
 	"github.com/spf13/cobra"
 )
 
@@ -24,18 +26,34 @@ maintaining parent-child relationships between branches.`,
 	Version:       Version,
 	SilenceUsage:  true,
 	SilenceErrors: true,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if cmdutil.JSONMode(cmd) {
+			colors.SetEnabled(false)
+		}
+	},
 }
 
 // Execute runs the root command
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		if cmdutil.JSONMode(rootCmd) {
+			cmdName := ""
+			if sub, _, _ := rootCmd.Find(os.Args[1:]); sub != nil && sub != rootCmd {
+				cmdName = sub.Name()
+			}
+			cmdutil.PrintJSONError(cmdName, err)
+		} else {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
 		os.Exit(1)
 	}
 }
 
 func init() {
-	// Override default version template to show more info
+	rootCmd.PersistentFlags().Bool("json", false, "Output result as JSON to stdout")
+	rootCmd.PersistentFlags().Bool("debug", false, "Print timestamped debug lines to stderr")
+	rootCmd.PersistentFlags().Bool("no-interactive", false, "Disable interactive prompts")
+
 	rootCmd.SetVersionTemplate(`gs version {{.Version}}
 `)
 }
